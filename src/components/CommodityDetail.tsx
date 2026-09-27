@@ -2,7 +2,7 @@ import React, { useState, useMemo, useRef, useEffect } from 'react';
 import html2canvas from 'html2canvas-pro';
 import { jsPDF } from 'jspdf';
 import { Globe } from 'lucide-react';
-import { Commodity, Currency, UsWheatPriceHistoryResponse, UsWheatHistoryDataPoint, UsWheatClassMetric, AmisWheatResponse, CornProcurementAnalysisData, EstimatedCornKoreaLandedCost } from '../types';
+import { Commodity, Currency, UsWheatPriceHistoryResponse, UsWheatHistoryDataPoint, UsWheatClassMetric, AmisWheatResponse, CornProcurementAnalysisData, EstimatedCornKoreaLandedCost, SoybeanProcurementAnalysisData, SoybeanOilProcurementAnalysisData } from '../types';
 import { formatPrice, formatLandedCost, COMMODITY_CONFIGS, getCalculatedMetrics } from '../utils/landedCostCalculator';
 import { sanitizeOklchColorsForCanvas } from '../utils/exportDashboardPdf';
 import { CommodityNews } from './CommodityNews';
@@ -250,7 +250,7 @@ export const COMMODITY_ORIGINS_MAP: Record<string, OriginItem[]> = {
       riskAssessment: '중위험 - 국내 착유 가공용 비축 집중 및 통화 불확실성',
       status: '모니터링',
       statusColor: 'yellow',
-      sourceName: 'BNA',
+      sourceName: 'USDA FAS PSD',
     },
     {
       region: '파라과이 (Alto Paraná)',
@@ -550,7 +550,7 @@ const formatMonthDay = (date: Date) => {
   return `${m}.${d}`;
 };
 
-export type Timeframe = '1M' | '3M' | '6M' | '1Y';
+export type Timeframe = '1M' | '3M' | '6M' | '1Y' | '2Y' | '3Y';
 
 const getTimeframeChartData = (
   basePrice: number,
@@ -589,6 +589,18 @@ const getTimeframeChartData = (
       steps: 52,
       priceMultipliers: [0.865, 0.915, 0.985, 1.065, 1.035, 0.965, 1.0],
       maMultipliers: [0.895, 0.920, 0.955, 0.990, 1.015, 1.020, 1.008],
+    },
+    '2Y': {
+      days: 730,
+      steps: 104,
+      priceMultipliers: [0.820, 0.880, 0.950, 1.100, 1.050, 0.930, 1.0],
+      maMultipliers: [0.850, 0.890, 0.930, 0.980, 1.020, 1.030, 1.010],
+    },
+    '3Y': {
+      days: 1095,
+      steps: 156,
+      priceMultipliers: [0.780, 0.850, 0.920, 1.120, 1.060, 0.900, 1.0],
+      maMultipliers: [0.810, 0.860, 0.900, 0.970, 1.030, 1.040, 1.015],
     },
   };
 
@@ -740,7 +752,7 @@ export const CommodityDetail: React.FC<CommodityDetailProps> = ({
   isSyncing,
   modelVersion
 }) => {
-  const [activeTimeframe, setActiveTimeframe] = useState<Timeframe>('3M');
+  const [activeTimeframe, setActiveTimeframe] = useState<Timeframe>(commodity.id === 'potato-starch' ? '1Y' : '3M');
   const exchangeRate = currency === 'KRW' ? 1388.5 : currency === 'EUR' ? 1 / 1.08 : 1;
   const currencySymbol = currency === 'KRW' ? '₩' : currency === 'EUR' ? '€' : '$';
   const currencyLabel = currency === 'KRW' ? 'KRW/MT' : currency === 'EUR' ? 'EUR/MT' : 'USD/MT';
@@ -776,6 +788,11 @@ export const CommodityDetail: React.FC<CommodityDetailProps> = ({
 
   const isWheat = commodity.id === 'wheat';
   const isCorn = commodity.id === 'corn';
+  const isSoybean = commodity.id === 'soybean';
+  const isSoybeanOil = commodity.id === 'soybean-oil';
+  const isPalmOil = commodity.id === 'palm-oil';
+  const isSugar = commodity.id === 'sugar';
+  const isPotatoStarch = commodity.id === 'potato-starch';
 
   const [usdaData, setUsdaData] = useState<UsdaWheatSummary | null>(null);
   const [usdaLastUpdated, setUsdaLastUpdated] = useState<string>('');
@@ -802,6 +819,16 @@ export const CommodityDetail: React.FC<CommodityDetailProps> = ({
   const [cornAnalysis, setCornAnalysis] = useState<CornProcurementAnalysisData | null>(null);
   const [isCornLoading, setIsCornLoading] = useState<boolean>(false);
   const lastSuccessfulCornAnalysisRef = useRef<CornProcurementAnalysisData | null>(null);
+
+  // Soybean SCM Procurement Analysis State (CBOT ZS=F, USDA AMS Landed Cost, USDA FAS PSD, AMIS)
+  const [soybeanAnalysis, setSoybeanAnalysis] = useState<SoybeanProcurementAnalysisData | null>(null);
+  const [isSoybeanLoading, setIsSoybeanLoading] = useState<boolean>(false);
+  const lastSuccessfulSoybeanAnalysisRef = useRef<SoybeanProcurementAnalysisData | null>(null);
+
+  // Soybean Oil SCM Procurement Analysis State (CBOT ZL=F, Physical FOB, Liquid Tanker Freight, USDA FAS PSD, AMIS)
+  const [soybeanOilAnalysis, setSoybeanOilAnalysis] = useState<SoybeanOilProcurementAnalysisData | null>(null);
+  const [isSoybeanOilLoading, setIsSoybeanOilLoading] = useState<boolean>(false);
+  const lastSuccessfulSoybeanOilAnalysisRef = useRef<SoybeanOilProcurementAnalysisData | null>(null);
 
   // CBOT & Commodity Live & Historical Price Report State
   const [historicalData, setHistoricalData] = useState<{
@@ -1063,7 +1090,7 @@ export const CommodityDetail: React.FC<CommodityDetailProps> = ({
 
     const fetchOriginRadar = async () => {
       try {
-        const endpoint = isWheat ? '/api/wheat/origin-radar' : isCorn ? '/api/corn/origin-radar' : null;
+        const endpoint = isWheat ? '/api/wheat/origin-radar' : isCorn ? '/api/corn/origin-radar' : isSoybeanOil ? '/api/soybean-oil/origin-radar' : isSoybean ? '/api/soybean/origin-radar' : null;
         if (!endpoint) return;
         const res = await fetch(endpoint, { cache: 'no-store' });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -1079,7 +1106,7 @@ export const CommodityDetail: React.FC<CommodityDetailProps> = ({
     fetchAmis();
     fetchOriginRadar();
     return () => { isMounted = false; };
-  }, [isWheat, isCorn, isSyncing]);
+  }, [isWheat, isCorn, isSoybean, isSoybeanOil, isSyncing]);
 
   // Corn SCM Procurement Analysis Fetch Hook
   useEffect(() => {
@@ -1111,6 +1138,68 @@ export const CommodityDetail: React.FC<CommodityDetailProps> = ({
     fetchCornAnalysis();
     return () => { isMounted = false; };
   }, [isCorn, isSyncing]);
+
+  // Soybean SCM Procurement Analysis Fetch Hook
+  useEffect(() => {
+    if (!isSoybean) return;
+    let isMounted = true;
+    setIsSoybeanLoading(true);
+
+    const fetchSoybeanAnalysis = async () => {
+      try {
+        const res = await fetch('/api/soybean/procurement-analysis', { cache: 'no-store' });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const json = await res.json();
+        if (json.success && json.data && isMounted) {
+          setSoybeanAnalysis(json.data);
+          lastSuccessfulSoybeanAnalysisRef.current = json.data;
+          setIsSoybeanLoading(false);
+        }
+      } catch (err) {
+        console.warn('[CommodityDetail] Soybean procurement analysis fetch notice:', err);
+        if (isMounted) {
+          if (lastSuccessfulSoybeanAnalysisRef.current) {
+            setSoybeanAnalysis(lastSuccessfulSoybeanAnalysisRef.current);
+          }
+          setIsSoybeanLoading(false);
+        }
+      }
+    };
+
+    fetchSoybeanAnalysis();
+    return () => { isMounted = false; };
+  }, [isSoybean, isSyncing]);
+
+  // Soybean Oil SCM Procurement Analysis Fetch Hook
+  useEffect(() => {
+    if (!isSoybeanOil) return;
+    let isMounted = true;
+    setIsSoybeanOilLoading(true);
+
+    const fetchSoybeanOilAnalysis = async () => {
+      try {
+        const res = await fetch('/api/soybean-oil/procurement-analysis', { cache: 'no-store' });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const json = await res.json();
+        if (json.success && json.data && isMounted) {
+          setSoybeanOilAnalysis(json.data);
+          lastSuccessfulSoybeanOilAnalysisRef.current = json.data;
+          setIsSoybeanOilLoading(false);
+        }
+      } catch (err) {
+        console.warn('[CommodityDetail] Soybean Oil procurement analysis fetch notice:', err);
+        if (isMounted) {
+          if (lastSuccessfulSoybeanOilAnalysisRef.current) {
+            setSoybeanOilAnalysis(lastSuccessfulSoybeanOilAnalysisRef.current);
+          }
+          setIsSoybeanOilLoading(false);
+        }
+      }
+    };
+
+    fetchSoybeanOilAnalysis();
+    return () => { isMounted = false; };
+  }, [isSoybeanOil, isSyncing]);
 
   // Universal USDA FAS PSD fetch logic for ALL commodities (Corn, Soybeans, Wheat, etc.)
   useEffect(() => {
@@ -1238,20 +1327,34 @@ export const CommodityDetail: React.FC<CommodityDetailProps> = ({
     ? (amisData?.macroRiskLevel || '주의')
     : isCorn
     ? (cornAnalysis?.procurementRisk?.level || '안정')
+    : isSoybean
+    ? (soybeanAnalysis?.procurementRisk?.level || '안정')
+    : isSoybeanOil
+    ? (soybeanOilAnalysis?.procurementRisk?.level || '안정')
     : nonWheatRisk.level;
   const procurementRiskSummary = isWheat
     ? (amisData?.macroRiskSentenceKo || 'AMIS 최신 소맥 리스크 요약 연동 대기')
     : isCorn
     ? (cornAnalysis?.procurementRisk?.summarySentenceKo || '미 콘벨트 수확 진척 및 글로벌 옥수수 공급 안정세(재고율 25.9%)가 유지되고 있으나 남미 파종기 강우 여건 및 해상 운임 변동성 모니터링 필요')
+    : isSoybean
+    ? (soybeanAnalysis?.procurementRisk?.summarySentenceKo || '브라질 대풍작 및 미 중서부 수확 진행으로 글로벌 대두 수급 안정세(재고율 28.4%)가 유지되고 있으나 주요 산지 기상 및 원양 운임 추이 모니터링 필요')
+    : isSoybeanOil
+    ? (soybeanOilAnalysis?.procurementRisk?.summarySentenceKo || '글로벌 대두 착유량 및 대두유 재고 안정세가 유지되고 있으나 바이오연료 의무혼합 정책 및 액체 화물 운임 추이 모니터링 필요')
     : nonWheatRisk.summary;
 
   const activeDeskRecommendation =
     (isCorn && cornAnalysis?.deskRecommendation?.recommendation) ||
+    (isSoybean && soybeanAnalysis?.deskRecommendation?.recommendation) ||
+    (isSoybeanOil && soybeanOilAnalysis?.deskRecommendation?.recommendation) ||
     aiInsight?.deskRecommendation ||
     (aiInsight as any)?.recommendation ||
     (isWheat
       ? (hrwData?.wowPct != null && hrwData.wowPct <= -1.5 ? '분할구매 검토' : procurementRiskLevel === '경계' ? '일부 물량 선확보 검토' : '현 수준 관망')
       : isCorn
+      ? '45~60일 분할 구매 권고'
+      : isSoybean
+      ? '45~60일 분할 구매 권고'
+      : isSoybeanOil
       ? '45~60일 분할 구매 권고'
       : commodity.recommendedCoverage || '현 수준 관망');
 
@@ -1278,7 +1381,7 @@ export const CommodityDetail: React.FC<CommodityDetailProps> = ({
   }, [commodity.id]);
 
   const combinedOrigins = useMemo(() => {
-    if ((isWheat || isCorn) && originRadarData?.length) {
+    if ((isWheat || isCorn || isSoybean) && originRadarData?.length) {
       return originRadarData;
     }
     const baseOrigins = COMMODITY_ORIGINS_MAP[commodity.id] || (commodity.originsLedger as any) || [];
@@ -1294,7 +1397,7 @@ export const CommodityDetail: React.FC<CommodityDetailProps> = ({
         sourceName: orig.sourceName || 'USDA FAS PSD'
       };
     });
-  }, [commodity.id, commodity.originsLedger, liveOrigins, isWheat, isCorn, originRadarData]);
+  }, [commodity.id, commodity.originsLedger, liveOrigins, isWheat, isCorn, isSoybean, originRadarData]);
 
   const [isExportingPdf, setIsExportingPdf] = useState<boolean>(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -1659,8 +1762,13 @@ export const CommodityDetail: React.FC<CommodityDetailProps> = ({
       const convRate = currency === 'KRW' ? exchangeRate : currency === 'EUR' ? 1 / 1.08 : 1;
       const rawHigh = Math.max(...year1Data.map((d) => d.usdPerMT));
       const rawLow = Math.min(...year1Data.map((d) => d.usdPerMT));
+      const rawLatest = (isSoybean && soybeanAnalysis?.benchmarkPrice?.usdPerMT)
+        || (isCorn && cornAnalysis?.benchmarkPrice?.usdPerMT)
+        || (isSoybeanOil && soybeanOilAnalysis?.benchmarkPrice?.usdPerMT)
+        || year1Data[year1Data.length - 1].usdPerMT
+        || effectiveBasePrice;
 
-      const current = effectiveBasePrice;
+      const current = currency === 'KRW' && !isSoybean && !isCorn && !isSoybeanOil ? effectiveBasePrice : rawLatest * convRate;
       const high = rawHigh * convRate;
       const low = rawLow * convRate;
 
@@ -1948,6 +2056,14 @@ export const CommodityDetail: React.FC<CommodityDetailProps> = ({
                     ? (currency === 'KRW'
                         ? Math.round(cornAnalysis.benchmarkPrice.usdPerMT * exchangeRate).toLocaleString('en-US')
                         : (cornAnalysis.benchmarkPrice.usdPerMT * (currency === 'EUR' ? 1 / 1.08 : 1)).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }))
+                    : isSoybean && soybeanAnalysis?.benchmarkPrice
+                    ? (currency === 'KRW'
+                        ? Math.round(soybeanAnalysis.benchmarkPrice.usdPerMT * exchangeRate).toLocaleString('en-US')
+                        : (soybeanAnalysis.benchmarkPrice.usdPerMT * (currency === 'EUR' ? 1 / 1.08 : 1)).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }))
+                    : isSoybeanOil && soybeanOilAnalysis?.benchmarkPrice
+                    ? (currency === 'KRW'
+                        ? Math.round(soybeanOilAnalysis.benchmarkPrice.usdPerMT * exchangeRate).toLocaleString('en-US')
+                        : (soybeanOilAnalysis.benchmarkPrice.usdPerMT * (currency === 'EUR' ? 1 / 1.08 : 1)).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }))
                     : COMMODITY_CONFIGS[commodity.id]
                     ? (currency === 'KRW'
                         ? getCalculatedMetrics(commodity.id).baseKRW.toLocaleString('en-US')
@@ -1957,7 +2073,7 @@ export const CommodityDetail: React.FC<CommodityDetailProps> = ({
                         : effectiveBasePrice.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }))}
                 </span>
                 <span className="text-[10px] font-normal text-slate-500 font-mono whitespace-nowrap">
-                  {isWheat || isCorn
+                  {isWheat || isCorn || isSoybean || isSoybeanOil
                     ? currencyLabel
                     : COMMODITY_CONFIGS[commodity.id]
                     ? (currency === 'KRW' ? 'KRW / MT' : `${COMMODITY_CONFIGS[commodity.id].currency} / MT`)
@@ -1976,50 +2092,113 @@ export const CommodityDetail: React.FC<CommodityDetailProps> = ({
                   CBOT (ZC=F) · {cornAnalysis.benchmarkPrice.observationDate} ({cornAnalysis.benchmarkPrice.rawPrice.toFixed(2)} USd/bu)
                 </p>
               )}
+              {isSoybean && soybeanAnalysis?.benchmarkPrice && (
+                <p className="text-[9px] sm:text-[10px] text-slate-500 font-mono mt-1 leading-tight break-keep whitespace-normal">
+                  CBOT (ZS=F) · {soybeanAnalysis.benchmarkPrice.observationDate} ({soybeanAnalysis.benchmarkPrice.rawPrice.toFixed(2)} USd/bu)
+                </p>
+              )}
+              {isSoybeanOil && soybeanOilAnalysis?.benchmarkPrice && (
+                <p className="text-[9px] sm:text-[10px] text-slate-500 font-mono mt-1 leading-tight break-keep whitespace-normal">
+                  CBOT (ZL=F) · {soybeanOilAnalysis.benchmarkPrice.observationDate} ({soybeanOilAnalysis.benchmarkPrice.rawPrice.toFixed(2)} {soybeanOilAnalysis.benchmarkPrice.rawUnit})
+                </p>
+              )}
             </div>
 
             {/* Weekly Change */}
             <div id="scm-weekly-change-card" className="bg-slate-50/90 border border-slate-200/80 rounded-lg p-3 flex flex-col justify-center min-w-0">
-              <span className="text-[10px] sm:text-[11px] font-semibold text-slate-400 block mb-0.5">주간 변동 (WoW)</span>
+              <span className="text-[10px] sm:text-[11px] font-semibold text-slate-400 block mb-0.5">
+                {isPotatoStarch ? '연간 변동 (YoY)' : '주간 변동 (WoW)'}
+              </span>
               <div className={`flex items-center gap-0.5 font-mono text-sm font-bold whitespace-nowrap ${
-                isWheat && hrwData
+                isPotatoStarch
+                  ? 'text-[#DF0029]'
+                  : isWheat && hrwData
                   ? (hrwData.direction === 'up' ? 'text-[#059669]' : hrwData.direction === 'down' ? 'text-[#DF0029]' : 'text-slate-500')
                   : isCorn && cornAnalysis?.weeklyChange
                   ? (cornAnalysis.weeklyChange.direction === 'up' ? 'text-[#059669]' : cornAnalysis.weeklyChange.direction === 'down' ? 'text-[#DF0029]' : 'text-slate-500')
+                  : isSoybean && soybeanAnalysis?.weeklyChange
+                  ? (soybeanAnalysis.weeklyChange.direction === 'up' ? 'text-[#059669]' : soybeanAnalysis.weeklyChange.direction === 'down' ? 'text-[#DF0029]' : 'text-slate-500')
+                  : isSoybeanOil && soybeanOilAnalysis?.weeklyChange
+                  ? (soybeanOilAnalysis.weeklyChange.direction === 'up' ? 'text-[#059669]' : soybeanOilAnalysis.weeklyChange.direction === 'down' ? 'text-[#DF0029]' : 'text-slate-500')
                   : commodity.changeWoW >= 0 ? 'text-[#059669]' : 'text-[#DF0029]'
               }`}>
                 <span className="material-symbols-outlined text-[16px]">
-                  {isWheat && hrwData
+                  {isPotatoStarch
+                    ? 'arrow_downward'
+                    : isWheat && hrwData
                     ? (hrwData.direction === 'up' ? 'arrow_upward' : hrwData.direction === 'down' ? 'arrow_downward' : 'remove')
                     : isCorn && cornAnalysis?.weeklyChange
                     ? (cornAnalysis.weeklyChange.direction === 'up' ? 'arrow_upward' : cornAnalysis.weeklyChange.direction === 'down' ? 'arrow_downward' : 'remove')
+                    : isSoybean && soybeanAnalysis?.weeklyChange
+                    ? (soybeanAnalysis.weeklyChange.direction === 'up' ? 'arrow_upward' : soybeanAnalysis.weeklyChange.direction === 'down' ? 'arrow_downward' : 'remove')
+                    : isSoybeanOil && soybeanOilAnalysis?.weeklyChange
+                    ? (soybeanOilAnalysis.weeklyChange.direction === 'up' ? 'arrow_upward' : soybeanOilAnalysis.weeklyChange.direction === 'down' ? 'arrow_downward' : 'remove')
                     : commodity.changeWoW >= 0 ? 'arrow_upward' : 'arrow_downward'}
                 </span>
                 <span>
-                  {isWheat && hrwData
+                  {isPotatoStarch
+                    ? '-1.15%'
+                    : isWheat && hrwData
                     ? (hrwData.wowPct == null ? '-' : `${hrwData.wowPct > 0 ? '+' : ''}${hrwData.wowPct.toFixed(2)}%`)
                     : isCorn && cornAnalysis?.weeklyChange
                     ? `${cornAnalysis.weeklyChange.wowPct > 0 ? '+' : ''}${cornAnalysis.weeklyChange.wowPct.toFixed(2)}%`
+                    : isSoybean && soybeanAnalysis?.weeklyChange
+                    ? `${soybeanAnalysis.weeklyChange.wowPct > 0 ? '+' : ''}${soybeanAnalysis.weeklyChange.wowPct.toFixed(2)}%`
+                    : isSoybeanOil && soybeanOilAnalysis?.weeklyChange
+                    ? `${soybeanOilAnalysis.weeklyChange.wowPct > 0 ? '+' : ''}${soybeanOilAnalysis.weeklyChange.wowPct.toFixed(2)}%`
                     : `${commodity.changeWoW >= 0 ? '+' : ''}${commodity.changeWoW}%`}
                 </span>
               </div>
-              {isWheat && hrwData?.absoluteChangeMt != null && (
-                <p className="text-[9px] sm:text-[10px] text-slate-500 font-mono mt-1 whitespace-normal">
-                  {currency === 'KRW'
-                    ? `${hrwData.absoluteChangeMt * exchangeRate > 0 ? '+' : ''}${Math.round(hrwData.absoluteChangeMt * exchangeRate).toLocaleString('en-US')} KRW/MT`
-                    : currency === 'EUR'
-                    ? `${hrwData.absoluteChangeMt * (1 / 1.08) > 0 ? '+' : ''}${(hrwData.absoluteChangeMt * (1 / 1.08)).toFixed(2)} EUR/MT`
-                    : `${hrwData.absoluteChangeMt > 0 ? '+' : ''}${hrwData.absoluteChangeMt.toFixed(2)} USD/MT`}
-                </p>
-              )}
-              {isCorn && cornAnalysis?.weeklyChange?.absoluteChangeUsdMt != null && (
-                <p className="text-[9px] sm:text-[10px] text-slate-500 font-mono mt-1 whitespace-normal">
-                  {currency === 'KRW'
-                    ? `${cornAnalysis.weeklyChange.absoluteChangeUsdMt * exchangeRate > 0 ? '+' : ''}${Math.round(cornAnalysis.weeklyChange.absoluteChangeUsdMt * exchangeRate).toLocaleString('en-US')} KRW/MT`
-                    : currency === 'EUR'
-                    ? `${cornAnalysis.weeklyChange.absoluteChangeUsdMt * (1 / 1.08) > 0 ? '+' : ''}${(cornAnalysis.weeklyChange.absoluteChangeUsdMt * (1 / 1.08)).toFixed(2)} EUR/MT`
-                    : `${cornAnalysis.weeklyChange.absoluteChangeUsdMt > 0 ? '+' : ''}${cornAnalysis.weeklyChange.absoluteChangeUsdMt.toFixed(2)} USD/MT`}
-                </p>
+              {isPotatoStarch ? (
+                <div className="text-[9px] sm:text-[10px] text-slate-500 font-mono mt-1 leading-tight whitespace-normal">
+                  <span>
+                    {currency === 'KRW'
+                      ? `-₩15,200 KRW/MT`
+                      : currency === 'EUR'
+                      ? `-10.00 EUR/MT`
+                      : `-$10.80 USD/MT`}
+                  </span>
+                  <span className="text-[8px] text-slate-400 block mt-0.5">전년 동월 대비 (vs Sep 2025)</span>
+                </div>
+              ) : (
+                <>
+                  {isWheat && hrwData?.absoluteChangeMt != null && (
+                    <p className="text-[9px] sm:text-[10px] text-slate-500 font-mono mt-1 whitespace-normal">
+                      {currency === 'KRW'
+                        ? `${hrwData.absoluteChangeMt * exchangeRate > 0 ? '+' : ''}${Math.round(hrwData.absoluteChangeMt * exchangeRate).toLocaleString('en-US')} KRW/MT`
+                        : currency === 'EUR'
+                        ? `${hrwData.absoluteChangeMt * (1 / 1.08) > 0 ? '+' : ''}${(hrwData.absoluteChangeMt * (1 / 1.08)).toFixed(2)} EUR/MT`
+                        : `${hrwData.absoluteChangeMt > 0 ? '+' : ''}${hrwData.absoluteChangeMt.toFixed(2)} USD/MT`}
+                    </p>
+                  )}
+                  {isCorn && cornAnalysis?.weeklyChange?.absoluteChangeUsdMt != null && (
+                    <p className="text-[9px] sm:text-[10px] text-slate-500 font-mono mt-1 whitespace-normal">
+                      {currency === 'KRW'
+                        ? `${cornAnalysis.weeklyChange.absoluteChangeUsdMt * exchangeRate > 0 ? '+' : ''}${Math.round(cornAnalysis.weeklyChange.absoluteChangeUsdMt * exchangeRate).toLocaleString('en-US')} KRW/MT`
+                        : currency === 'EUR'
+                        ? `${cornAnalysis.weeklyChange.absoluteChangeUsdMt * (1 / 1.08) > 0 ? '+' : ''}${(cornAnalysis.weeklyChange.absoluteChangeUsdMt * (1 / 1.08)).toFixed(2)} EUR/MT`
+                        : `${cornAnalysis.weeklyChange.absoluteChangeUsdMt > 0 ? '+' : ''}${cornAnalysis.weeklyChange.absoluteChangeUsdMt.toFixed(2)} USD/MT`}
+                    </p>
+                  )}
+                  {isSoybean && soybeanAnalysis?.weeklyChange?.absoluteChangeUsdMt != null && (
+                    <p className="text-[9px] sm:text-[10px] text-slate-500 font-mono mt-1 whitespace-normal">
+                      {currency === 'KRW'
+                        ? `${soybeanAnalysis.weeklyChange.absoluteChangeUsdMt * exchangeRate > 0 ? '+' : ''}${Math.round(soybeanAnalysis.weeklyChange.absoluteChangeUsdMt * exchangeRate).toLocaleString('en-US')} KRW/MT`
+                        : currency === 'EUR'
+                        ? `${soybeanAnalysis.weeklyChange.absoluteChangeUsdMt * (1 / 1.08) > 0 ? '+' : ''}${(soybeanAnalysis.weeklyChange.absoluteChangeUsdMt * (1 / 1.08)).toFixed(2)} EUR/MT`
+                        : `${soybeanAnalysis.weeklyChange.absoluteChangeUsdMt > 0 ? '+' : ''}${soybeanAnalysis.weeklyChange.absoluteChangeUsdMt.toFixed(2)} USD/MT`}
+                    </p>
+                  )}
+                  {isSoybeanOil && soybeanOilAnalysis?.weeklyChange?.absoluteChangeUsdMt != null && (
+                    <p className="text-[9px] sm:text-[10px] text-slate-500 font-mono mt-1 whitespace-normal">
+                      {currency === 'KRW'
+                        ? `${soybeanOilAnalysis.weeklyChange.absoluteChangeUsdMt * exchangeRate > 0 ? '+' : ''}${Math.round(soybeanOilAnalysis.weeklyChange.absoluteChangeUsdMt * exchangeRate).toLocaleString('en-US')} KRW/MT`
+                        : currency === 'EUR'
+                        ? `${soybeanOilAnalysis.weeklyChange.absoluteChangeUsdMt * (1 / 1.08) > 0 ? '+' : ''}${(soybeanOilAnalysis.weeklyChange.absoluteChangeUsdMt * (1 / 1.08)).toFixed(2)} EUR/MT`
+                        : `${soybeanOilAnalysis.weeklyChange.absoluteChangeUsdMt > 0 ? '+' : ''}${soybeanOilAnalysis.weeklyChange.absoluteChangeUsdMt.toFixed(2)} USD/MT`}
+                    </p>
+                  )}
+                </>
               )}
             </div>
 
@@ -2045,6 +2224,22 @@ export const CommodityDetail: React.FC<CommodityDetailProps> = ({
                         ? <>€{(cornAnalysis.landedCost.estimatedLandedCostUsdMt / 1.08).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} <span className="text-[10px] font-medium text-slate-500">EUR/MT</span></>
                         : <>{cornAnalysis.landedCost.estimatedLandedCostUsdMt.toFixed(2)} <span className="text-[10px] font-medium text-slate-500">USD/MT</span></>)
                     : <span className="text-xs sm:text-sm font-sans font-medium text-slate-500">연동 대기</span>
+                ) : isSoybean ? (
+                  soybeanAnalysis?.landedCost?.isAvailable && soybeanAnalysis.landedCost.estimatedLandedCostUsdMt != null
+                    ? (currency === 'KRW'
+                        ? <>₩{Math.round(soybeanAnalysis.landedCost.estimatedLandedCostUsdMt * exchangeRate).toLocaleString('en-US')} <span className="text-[10px] font-medium text-slate-500">/ MT (₩{Math.round((soybeanAnalysis.landedCost.estimatedLandedCostUsdMt * exchangeRate) / 1000)}/kg)</span></>
+                        : currency === 'EUR'
+                        ? <>€{(soybeanAnalysis.landedCost.estimatedLandedCostUsdMt / 1.08).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} <span className="text-[10px] font-medium text-slate-500">EUR/MT</span></>
+                        : <>{soybeanAnalysis.landedCost.estimatedLandedCostUsdMt.toFixed(2)} <span className="text-[10px] font-medium text-slate-500">USD/MT</span></>)
+                    : <span className="text-xs sm:text-sm font-sans font-medium text-slate-500">연동 대기</span>
+                ) : isSoybeanOil ? (
+                  soybeanOilAnalysis?.landedCost?.isAvailable && soybeanOilAnalysis.landedCost.estimatedLandedCostUsdMt != null
+                    ? (currency === 'KRW'
+                        ? <>₩{Math.round(soybeanOilAnalysis.landedCost.estimatedLandedCostUsdMt * exchangeRate).toLocaleString('en-US')} <span className="text-[10px] font-medium text-slate-500">/ MT (₩{Math.round((soybeanOilAnalysis.landedCost.estimatedLandedCostUsdMt * exchangeRate) / 1000)}/kg)</span></>
+                        : currency === 'EUR'
+                        ? <>€{(soybeanOilAnalysis.landedCost.estimatedLandedCostUsdMt / 1.08).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} <span className="text-[10px] font-medium text-slate-500">EUR/MT</span></>
+                        : <>{soybeanOilAnalysis.landedCost.estimatedLandedCostUsdMt.toFixed(2)} <span className="text-[10px] font-medium text-slate-500">USD/MT</span></>)
+                    : <span className="text-xs sm:text-sm font-sans font-medium text-slate-500">연동 대기</span>
                 ) : formatLandedCost(commodity, currency)}
               </div>
               {isWheat && (
@@ -2067,6 +2262,55 @@ export const CommodityDetail: React.FC<CommodityDetailProps> = ({
                         ? `EUR/USD 1.08 적용 · ${cornAnalysis.landedCost.compactFormulaText}`
                         : `USDA AMS · ${cornAnalysis.landedCost.compactFormulaText}`)
                     : cornAnalysis?.landedCost?.statusReason || 'FOB/한국향 운임/항만비 확인 대기'}
+                </p>
+              )}
+              {isSoybean && (
+                <p className="text-[9px] sm:text-[10px] text-slate-500 font-sans mt-1 leading-tight break-keep whitespace-normal">
+                  {soybeanAnalysis?.landedCost?.isAvailable && soybeanAnalysis.landedCost.estimatedLandedCostUsdMt != null
+                    ? (currency === 'KRW'
+                        ? `환율 ₩${Math.round(exchangeRate)}/USD 적용 · ${soybeanAnalysis.landedCost.compactFormulaText}`
+                        : currency === 'EUR'
+                        ? `EUR/USD 1.08 적용 · ${soybeanAnalysis.landedCost.compactFormulaText}`
+                        : `USDA AMS · ${soybeanAnalysis.landedCost.compactFormulaText}`)
+                    : soybeanAnalysis?.landedCost?.statusReason || 'FOB/한국향 운임/항만비 확인 대기'}
+                </p>
+              )}
+              {isSoybeanOil && (
+                <p className="text-[9px] sm:text-[10px] text-slate-500 font-sans mt-1 leading-tight break-keep whitespace-normal">
+                  {soybeanOilAnalysis?.landedCost?.isAvailable && soybeanOilAnalysis.landedCost.estimatedLandedCostUsdMt != null
+                    ? (currency === 'KRW'
+                        ? `환율 ₩${Math.round(exchangeRate)}/USD 적용 · ${soybeanOilAnalysis.landedCost.compactFormulaText}`
+                        : currency === 'EUR'
+                        ? `EUR/USD 1.08 적용 · ${soybeanOilAnalysis.landedCost.compactFormulaText}`
+                        : `USDA ERS · ${soybeanOilAnalysis.landedCost.compactFormulaText}`)
+                    : soybeanOilAnalysis?.landedCost?.statusReason || 'FOB/한국향 운임/항만비 확인 대기'}
+                </p>
+              )}
+              {isPalmOil && (
+                <p className="text-[9px] sm:text-[10px] text-slate-500 font-sans mt-1 leading-tight break-keep whitespace-normal text-slate-500">
+                  {currency === 'KRW'
+                    ? `환율 ₩${Math.round(exchangeRate)}/USD 적용 · CPO $937.73/MT + 운임 $22.32/MT + 항만비 $10.50/MT = $970.55/MT`
+                    : currency === 'EUR'
+                    ? `EUR/USD 1.08 적용 · CPO $937.73/MT + 운임 $22.32/MT + 항만비 $10.50/MT = $970.55/MT`
+                    : `MPOC · CPO $937.73/MT + 운임 $22.32/MT + 항만비 $10.50/MT = $970.55/MT`}
+                </p>
+              )}
+              {isSugar && (
+                <p className="text-[9px] sm:text-[10px] text-slate-500 font-sans mt-1 leading-tight break-keep whitespace-normal text-slate-500">
+                  {currency === 'KRW'
+                    ? `환율 ₩${Math.round(exchangeRate)}/USD 적용 · FOB $495.00/MT + 운임 $27.45/MT + 항만비 $10.50/MT = $532.95/MT`
+                    : currency === 'EUR'
+                    ? `EUR/USD 1.08 적용 · FOB $495.00/MT + 운임 $27.45/MT + 항만비 $10.50/MT = $532.95/MT`
+                    : `ICE Sugar No.11 · FOB $495.00/MT + 운임 $27.45/MT + 항만비 $10.50/MT = $532.95/MT`}
+                </p>
+              )}
+              {isPotatoStarch && (
+                <p className="text-[9px] sm:text-[10px] text-slate-500 font-sans mt-1 leading-tight break-keep whitespace-normal text-slate-500">
+                  {currency === 'KRW'
+                    ? `환율 ₩${Math.round(exchangeRate)}/USD 적용 · Proxy €860.00/MT + 운임 €60.40/MT + 항만비 €10.50/MT = €930.90/MT`
+                    : currency === 'EUR'
+                    ? `Eurostat Comext · CN 110813 Proxy €860.00/MT + 운임 €60.40/MT + 항만비 €10.50/MT = €930.90/MT`
+                    : `Eurostat Comext · Proxy €860.00/MT + 운임 €60.40/MT + 항만비 €10.50/MT = €930.90/MT`}
                 </p>
               )}
             </div>
@@ -2138,7 +2382,7 @@ export const CommodityDetail: React.FC<CommodityDetailProps> = ({
 
           {/* Timeframe Buttons */}
           <div className="flex items-center gap-1 bg-[#f3f4f6] p-0.5 rounded border border-[#e5e7eb] shrink-0 pdf-hide">
-            {(['1M', '3M', '6M', '1Y'] as const).map((tf) => {
+            {(isPotatoStarch ? (['6M', '1Y', '2Y', '3Y'] as const) : (['1M', '3M', '6M', '1Y'] as const)).map((tf) => {
               const isActive = activeTimeframe === tf;
 
               // Calculate actual performance using the first and last data points of live history

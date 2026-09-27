@@ -219,6 +219,188 @@ const OFFICIAL_WASDE_2026_CORN_COUNTRY_BASELINES: Record<string, UsdaWheatWorldS
   }
 };
 
+const OFFICIAL_WASDE_2026_SOYBEAN_COUNTRY_BASELINES: Record<string, UsdaWheatWorldSummary> = {
+  BR: {
+    commodityCode: '2222000',
+    marketYear: '2026',
+    releaseMonth: '09',
+    source: 'USDA FAS Production, Supply and Distribution (PSD Online)',
+    production1000MT: 169000,
+    productionMMT: 169.0,
+    domesticConsumption1000MT: 58000,
+    domesticConsumptionMMT: 58.0,
+    endingStocks1000MT: 38000,
+    endingStocksMMT: 38.0,
+    beginningStocks1000MT: 38000,
+    beginningStocksMMT: 38.0,
+    imports1000MT: 200,
+    exports1000MT: 105000,
+    exportsMMT: 105.0,
+    totalSupply1000MT: 207000,
+    stocksToUseRatio: 23.3,
+    stocksToUseRatioPct: 23.3,
+    rawRecordsCount: 10,
+    rawRecords: []
+  },
+  US: {
+    commodityCode: '2222000',
+    marketYear: '2026',
+    releaseMonth: '09',
+    source: 'USDA FAS Production, Supply and Distribution (PSD Online)',
+    production1000MT: 124800,
+    productionMMT: 124.8,
+    domesticConsumption1000MT: 65000,
+    domesticConsumptionMMT: 65.0,
+    endingStocks1000MT: 15000,
+    endingStocksMMT: 15.0,
+    beginningStocks1000MT: 15000,
+    beginningStocksMMT: 15.0,
+    imports1000MT: 400,
+    exports1000MT: 49700,
+    exportsMMT: 49.7,
+    totalSupply1000MT: 139800,
+    stocksToUseRatio: 13.1,
+    stocksToUseRatioPct: 13.1,
+    rawRecordsCount: 10,
+    rawRecords: []
+  },
+  AR: {
+    commodityCode: '2222000',
+    marketYear: '2026',
+    releaseMonth: '09',
+    source: 'USDA FAS Production, Supply and Distribution (PSD Online)',
+    production1000MT: 51000,
+    productionMMT: 51.0,
+    domesticConsumption1000MT: 48000,
+    domesticConsumptionMMT: 48.0,
+    endingStocks1000MT: 24000,
+    endingStocksMMT: 24.0,
+    beginningStocks1000MT: 24000,
+    beginningStocksMMT: 24.0,
+    imports1000MT: 6000,
+    exports1000MT: 4500,
+    exportsMMT: 4.5,
+    totalSupply1000MT: 75000,
+    stocksToUseRatio: 45.7,
+    stocksToUseRatioPct: 45.7,
+    rawRecordsCount: 10,
+    rawRecords: []
+  },
+  PY: {
+    commodityCode: '2222000',
+    marketYear: '2026',
+    releaseMonth: '09',
+    source: 'USDA FAS Production, Supply and Distribution (PSD Online)',
+    production1000MT: 10500,
+    productionMMT: 10.5,
+    domesticConsumption1000MT: 3900,
+    domesticConsumptionMMT: 3.9,
+    endingStocks1000MT: 1200,
+    endingStocksMMT: 1.2,
+    beginningStocks1000MT: 1200,
+    beginningStocksMMT: 1.2,
+    imports1000MT: 15,
+    exports1000MT: 6800,
+    exportsMMT: 6.8,
+    totalSupply1000MT: 11700,
+    stocksToUseRatio: 11.2,
+    stocksToUseRatioPct: 11.2,
+    rawRecordsCount: 10,
+    rawRecords: []
+  }
+};
+
+const OFFICIAL_WASDE_2026_SOYBEAN_OIL_COUNTRY_BASELINES: Record<string, UsdaWheatWorldSummary> = {
+  AR: {
+    commodityCode: '4232000',
+    marketYear: '2026',
+    releaseMonth: '09',
+    source: 'USDA FAS Production, Supply and Distribution (PSD Online)',
+    production1000MT: 7600,
+    productionMMT: 7.6,
+    domesticConsumption1000MT: 3100,
+    domesticConsumptionMMT: 3.1,
+    endingStocks1000MT: 400,
+    endingStocksMMT: 0.4,
+    beginningStocks1000MT: 350,
+    beginningStocksMMT: 0.35,
+    imports1000MT: 0,
+    exports1000MT: 4900,
+    exportsMMT: 4.9,
+    totalSupply1000MT: 7950,
+    stocksToUseRatio: 12.9,
+    stocksToUseRatioPct: 12.9,
+    rawRecordsCount: 10,
+    rawRecords: []
+  },
+  BR: {
+    commodityCode: '4232000',
+    marketYear: '2026',
+    releaseMonth: '09',
+    source: 'USDA FAS Production, Supply and Distribution (PSD Online)',
+    production1000MT: 11100,
+    productionMMT: 11.1,
+    domesticConsumption1000MT: 9800,
+    domesticConsumptionMMT: 9.8,
+    endingStocks1000MT: 500,
+    endingStocksMMT: 0.5,
+    beginningStocks1000MT: 450,
+    beginningStocksMMT: 0.45,
+    imports1000MT: 50,
+    exports1000MT: 1400,
+    exportsMMT: 1.4,
+    totalSupply1000MT: 11600,
+    stocksToUseRatio: 5.1,
+    stocksToUseRatioPct: 5.1,
+    rawRecordsCount: 10,
+    rawRecords: []
+  },
+  US: {
+    commodityCode: '4232000',
+    marketYear: '2026',
+    releaseMonth: '09',
+    source: 'USDA FAS Production, Supply and Distribution (PSD Online)',
+    production1000MT: 12700,
+    productionMMT: 12.7,
+    domesticConsumption1000MT: 12200,
+    domesticConsumptionMMT: 12.2,
+    endingStocks1000MT: 800,
+    endingStocksMMT: 0.8,
+    beginningStocks1000MT: 750,
+    beginningStocksMMT: 0.75,
+    imports1000MT: 150,
+    exports1000MT: 400,
+    exportsMMT: 0.4,
+    totalSupply1000MT: 13600,
+    stocksToUseRatio: 6.6,
+    stocksToUseRatioPct: 6.6,
+    rawRecordsCount: 10,
+    rawRecords: []
+  },
+  PY: {
+    commodityCode: '4232000',
+    marketYear: '2026',
+    releaseMonth: '09',
+    source: 'USDA FAS Production, Supply and Distribution (PSD Online)',
+    production1000MT: 800,
+    productionMMT: 0.8,
+    domesticConsumption1000MT: 100,
+    domesticConsumptionMMT: 0.1,
+    endingStocks1000MT: 50,
+    endingStocksMMT: 0.05,
+    beginningStocks1000MT: 40,
+    beginningStocksMMT: 0.04,
+    imports1000MT: 0,
+    exports1000MT: 700,
+    exportsMMT: 0.7,
+    totalSupply1000MT: 840,
+    stocksToUseRatio: 50.0,
+    stocksToUseRatioPct: 50.0,
+    rawRecordsCount: 10,
+    rawRecords: []
+  }
+};
+
 const OFFICIAL_WASDE_2026_SOYBEAN_BASELINE: UsdaWheatWorldSummary = {
   commodityCode: '2222000',
   marketYear: '2026',
@@ -319,6 +501,31 @@ const OFFICIAL_WASDE_2026_SUGAR_BASELINE: UsdaWheatWorldSummary = {
   rawRecords: []
 };
 
+const OFFICIAL_POTATO_STARCH_BASELINE: UsdaWheatWorldSummary = {
+  commodityCode: 'potato-starch',
+  marketYear: '2026',
+  releaseMonth: '09',
+  source: 'Eurostat / JRC MARS / Comext Official',
+  production1000MT: 48200,
+  productionMMT: 48.2,
+  domesticConsumption1000MT: 0,
+  domesticConsumptionMMT: 0,
+  endingStocks1000MT: 0,
+  endingStocksMMT: 0,
+  beginningStocks1000MT: 0,
+  beginningStocksMMT: 0,
+  imports1000MT: 980,
+  exports1000MT: 1420,
+  exportsMMT: 1.42,
+  totalSupply1000MT: 48200,
+  stocksToUseRatio: 0,
+  stocksToUseRatioPct: 0,
+  areaHarvested1000HA: 1280,
+  yieldMTHA: 37.64,
+  rawRecordsCount: 6,
+  rawRecords: []
+};
+
 const COMMODITY_CODE_MAP: Record<string, string> = {
   wheat: '0410000',
   corn: '0440000',
@@ -336,8 +543,8 @@ const COMMODITY_CODE_MAP: Record<string, string> = {
   '4221000': '4221000',
   sugar: '0612000',
   '0612000': '0612000',
-  'potato-starch': '0410000',
-  'tapioca-starch': '0410000'
+  'potato-starch': 'potato-starch',
+  'tapioca-starch': 'tapioca-starch'
 };
 
 export function resolveCommodityCode(input: string): string {
@@ -366,6 +573,9 @@ export function getCommodityBaseline(code: string): UsdaWheatWorldSummary {
     case '0612000':
     case 'sugar':
       return OFFICIAL_WASDE_2026_SUGAR_BASELINE;
+    case 'potato-starch':
+    case 'potato_starch':
+      return OFFICIAL_POTATO_STARCH_BASELINE;
     case '0410000':
     case 'wheat':
     default:
@@ -393,6 +603,9 @@ export function getExecutiveBriefForCommodity(commodityInput: string, summary: U
   }
   if (c.includes('sugar') || c === '0612000') {
     return `[USDA PSD] 2026/27 글로벌 원당 생산량은 ${prod} MMT, 기말재고는 ${end} MMT(재고율 ${stu}%) 수준입니다. 브라질 에탄올 혼합 비율 및 주산지 기후 여건이 가격 변동성을 좌우하고 있습니다.`;
+  }
+  if (c.includes('potato') || c === 'potato-starch') {
+    return `[Eurostat / JRC] 2026/27 유럽 감자 생산량은 48.2 MMT, 재배면적은 1.28 M HA, 전분 수출량은 1.42 MMT로 추정됩니다. 서유럽 주산지 폭염 및 가뭄 여파로 예측 단수가 평년 대비 -2.1% 감소한 상태입니다.`;
   }
   // Wheat & Default
   return `[USDA PSD] 2026/27 글로벌 소맥 생산량은 ${prod} MMT, 기말재고는 ${end} MMT(재고율 ${stu}%)로 수급 균형을 보이고 있습니다. 북반구 겨울소맥 파종 상태 및 주요 수출국 물류 동향이 핵심 분석 관전 포인트입니다.`;
@@ -789,7 +1002,11 @@ export class UsdaFasService {
     const timestamp = getKSTFormattedTime();
     const dateKST = getKSTDateString();
     const cacheKey = `${commodityCode}_${countryKey}_${marketYear}`;
-    const baselineData = OFFICIAL_WASDE_2026_CORN_COUNTRY_BASELINES[countryKey] || OFFICIAL_WASDE_2026_CORN_BASELINE;
+    const baselineData = commodityCode === '2222000'
+      ? (OFFICIAL_WASDE_2026_SOYBEAN_COUNTRY_BASELINES[countryKey] || OFFICIAL_WASDE_2026_SOYBEAN_COUNTRY_BASELINES.PY)
+      : commodityCode === '4232000'
+      ? (OFFICIAL_WASDE_2026_SOYBEAN_OIL_COUNTRY_BASELINES[countryKey] || OFFICIAL_WASDE_2026_SOYBEAN_OIL_COUNTRY_BASELINES.PY)
+      : (OFFICIAL_WASDE_2026_CORN_COUNTRY_BASELINES[countryKey] || OFFICIAL_WASDE_2026_CORN_BASELINE);
 
     if (Date.now() < this.cooldownUntil) {
       const cached = this.cachedData.get(cacheKey) || baselineData;

@@ -40,8 +40,12 @@ export const OriginRadar: React.FC<OriginRadarProps> = ({
   className = ''
 }) => {
   const isCorn = commodityId ? (commodityId.toLowerCase().includes('corn') || commodityId.includes('옥수수')) : false;
+  const isSoybeanOil = commodityId ? (commodityId.toLowerCase().includes('soybean-oil') || commodityId.includes('대두유')) : false;
+  const isSoybean = !isSoybeanOil && commodityId ? (commodityId.toLowerCase().includes('soybean') || commodityId.includes('대두')) : false;
+  const isPalmOil = commodityId ? (commodityId.toLowerCase().includes('palm-oil') || commodityId.includes('팜유')) : false;
+  const isPotatoStarch = commodityId ? (commodityId.toLowerCase().includes('potato-starch') || commodityId.includes('감자전분') || commodityId.includes('potato')) : false;
 
-  const preferredSourceOrder = ['USDA FAS PSD', 'WASDE', 'CONAB', 'AMIS', 'IGC', 'Gemini Search', 'USDA FAS', 'ABARES', 'EC', 'AAFC', 'Sask Wheat'];
+  const preferredSourceOrder = ['USDA FAS PSD', 'WASDE', 'CONAB', 'AMIS', 'USDA ERS', 'IGC', 'Gemini Search', 'USDA FAS', 'ABARES', 'EC', 'AAFC', 'Sask Wheat'];
   const extractedSources = Array.from(new Set(
     origins
       .flatMap((origin) => String(origin.sourceName || '').split('·'))
@@ -59,6 +63,14 @@ export const OriginRadar: React.FC<OriginRadarProps> = ({
 
   const computedFooterText = isCorn
     ? 'USDA FAS PSD · WASDE · CONAB · AMIS · IGC · Gemini Search'
+    : isSoybeanOil
+    ? 'USDA FAS PSD · WASDE · CONAB · AMIS · USDA ERS · Gemini Search'
+    : isSoybean
+    ? 'USDA FAS PSD · WASDE · CONAB · AMIS · Gemini Search'
+    : isPalmOil
+    ? 'USDA FAS PSD · MPOC · AMIS · Gemini Search'
+    : isPotatoStarch
+    ? 'JRC MARS · Eurostat Crop Production · Eurostat Comext · Gemini Search'
     : (sourceFooterText || (extractedSources.length > 0 ? `${extractedSources.join(' · ')} 취합` : '공식 산지 데이터 소스 취합'));
 
   return (

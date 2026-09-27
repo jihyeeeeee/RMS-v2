@@ -102,6 +102,9 @@ const cleanJson = (text: string): any => {
 class WheatIntelligenceService {
   private cachedData: WheatAiRecommendationData | null = null;
   private cacheExpiresAt = 0;
+  private cachedResearch: SearchResearchPayload | null = null;
+  private researchExpiresAt = 0;
+  private researchCooldownUntil = 0;
 
   private deriveDeskRecommendation(wowPct: number | null, riskLevel: string): string {
     if (riskLevel === '경계') return '일부 물량 선확보 검토';
@@ -120,7 +123,15 @@ class WheatIntelligenceService {
     amisSummary: string;
   }): Promise<SearchResearchPayload | null> {
     const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey || apiKey === 'DEMO_KEY' || apiKey === 'MY_GEMINI_API_KEY') return null;
+    if (!apiKey || apiKey === 'DEMO_KEY' || apiKey === 'MY_GEMINI_API_KEY') return this.cachedResearch;
+
+    const now = Date.now();
+    if (this.cachedResearch && now < this.researchExpiresAt) {
+      return this.cachedResearch;
+    }
+    if (now < this.researchCooldownUntil) {
+      return this.cachedResearch;
+    }
 
     try {
       const ai = new GoogleGenAI({
@@ -165,10 +176,22 @@ Rules:
         config: { tools: [{ googleSearch: {} }] }
       });
       const text = response.text || '';
-      return cleanJson(text) as SearchResearchPayload;
+      const parsed = cleanJson(text) as SearchResearchPayload;
+      if (parsed) {
+        this.cachedResearch = parsed;
+        this.researchExpiresAt = Date.now() + CACHE_TTL_MS;
+      }
+      return parsed;
     } catch (err: any) {
-      console.warn('[WheatIntelligenceService] Grounded web research unavailable:', err?.message || err);
-      return null;
+      const errStr = String(err?.message || err);
+      const is429 = err?.status === 429 || err?.status === 'RESOURCE_EXHAUSTED' || errStr.includes('429') || errStr.includes('quota') || errStr.includes('RESOURCE_EXHAUSTED');
+      if (is429) {
+        this.researchCooldownUntil = Date.now() + 5 * 60 * 1000;
+        console.info('[WheatIntelligenceService] Web research rate limit active (cooldown 5m), relying on verified AMIS and price telemetry.');
+      } else {
+        console.info('[WheatIntelligenceService] Grounded web research notice: using verified AMIS baseline.');
+      }
+      return this.cachedResearch;
     }
   }
 
