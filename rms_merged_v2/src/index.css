@@ -1,0 +1,163 @@
+@import "tailwindcss";
+
+@layer base {
+  html, body {
+    margin: 0;
+    padding: 0;
+  }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans KR", sans-serif;
+    @apply font-sans antialiased text-slate-900;
+  }
+  html {
+    scroll-behavior: smooth;
+  }
+}
+
+::-webkit-scrollbar {
+  display: none;
+}
+
+@keyframes highlightPulse {
+  0% {
+    box-shadow: 0 0 0 4px rgba(223, 0, 41, 0.45);
+    border-color: #DF0029;
+  }
+  50% {
+    box-shadow: 0 0 0 8px rgba(223, 0, 41, 0.2);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(223, 0, 41, 0);
+  }
+}
+
+:target {
+  scroll-margin-top: 5rem;
+  animation: highlightPulse 2.2s ease-out;
+  border-color: #DF0029 !important;
+}
+
+.font-mono, .font-data {
+  font-family: 'JetBrains Mono', monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+h1, h2, h3, h4, h5, h6, .card-title, .section-title, .break-keep {
+  word-break: keep-all;
+  overflow-wrap: break-word;
+}
+
+.pdf-section-card {
+  page-break-inside: avoid !important;
+  break-inside: avoid !important;
+}
+
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 10mm 12mm 10mm 12mm;
+  }
+
+  html, body {
+    width: 210mm !important;
+    background: #ffffff !important;
+    font-size: 11px !important;
+  }
+
+  /* Remove web UI padding/margins */
+  .overview-container {
+    padding: 0 !important;
+    margin: 0 !important;
+    width: 100% !important;
+  }
+
+  /* Force Page Breaks */
+  .overview-page-1 {
+    page-break-after: always !important;
+    break-after: page !important;
+    height: 270mm !important; /* Lock Page 1 height */
+    overflow: hidden !important;
+  }
+
+  .overview-page-2 {
+    page-break-before: always !important;
+    break-before: page !important;
+    height: 270mm !important; /* Lock Page 2 height */
+    overflow: hidden !important;
+  }
+
+  .macroeconomic-drivers-card {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+    margin-top: 0.5rem !important;
+  }
+
+  /* 1. Clear layout restrictions on main wrappers */
+  html, body, #root, main, .app-container, .CommodityDetail, .OverviewTerminal {
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    background: #ffffff !important;
+    color: #111827 !important;
+    word-break: keep-all !important;
+    overflow-wrap: break-word !important;
+  }
+
+  /* Strict print hiding for UI chrome */
+  header,
+  aside,
+  .print-hide,
+  .pdf-hide,
+  button,
+  input,
+  select,
+  .no-print {
+    display: none !important;
+  }
+
+  /* Prevent awkward card slicing across pages */
+  .pdf-section-card,
+  section,
+  article,
+  .break-inside-avoid {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+
+  /* Maintain elastic multi-column WASDE telemetry grids in print */
+  .wasde-grid {
+    display: grid !important;
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    gap: 8px !important;
+  }
+
+  .market-intelligence-section {
+    margin-top: 1.5rem !important;
+    padding-top: 0.75rem !important;
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+
+  /* Target the WASDE + Origin Radar parent container */
+  .wasde-origin-radar-section,
+  .wasde-origin-radar-wrapper,
+  .wasde-section-container {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 1rem !important;
+    clear: both !important;
+    break-before: page !important;
+    page-break-before: always !important;
+    margin-top: 2rem !important;
+    position: relative !important;
+  }
+
+  /* Keep internal citations glued inside the card */
+  .wasde-origin-radar-section *,
+  .wasde-origin-radar-wrapper * {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+}
+

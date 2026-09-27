@@ -1,0 +1,8 @@
+{
+  "name": "Remix Remix RMS – 농심 실시간 원자재 조달 모니터링 시스템",
+  "description": "농심 SCM 본부를 위한 글로벌 농산물 실시간 가격 벤치마크, 거시경제 분석, 수급 펀더멘털 및 AI 조달 전략 통합 모니터링 시스템",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

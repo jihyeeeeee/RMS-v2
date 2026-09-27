@@ -1,0 +1,2702 @@
+import React, { useState, useMemo, useRef, useEffect } from 'react';
+import html2canvas from 'html2canvas-pro';
+import { jsPDF } from 'jspdf';
+import { Globe } from 'lucide-react';
+import { Commodity, Currency, UsWheatPriceHistoryResponse, UsWheatHistoryDataPoint, UsWheatClassMetric, AmisWheatResponse } from '../types';
+import { formatPrice, formatLandedCost, COMMODITY_CONFIGS, getCalculatedMetrics } from '../utils/landedCostCalculator';
+import { sanitizeOklchColorsForCanvas } from '../utils/exportDashboardPdf';
+import { CommodityNews } from './CommodityNews';
+import AiRecommendation from './AiRecommendation';
+import { CommodityWasdeCard } from './CommodityWasdeCard';
+import { OriginRadar } from './OriginRadar';
+
+export interface UsdaWheatSummary {
+  commodityCode?: string;
+  marketYear?: string;
+  releaseMonth?: string;
+  source?: string;
+  production1000MT?: number;
+  productionMMT?: number;
+  domesticConsumption1000MT?: number;
+  domesticConsumptionMMT?: number;
+  endingStocks1000MT?: number;
+  endingStocksMMT?: number;
+  beginningStocks1000MT?: number;
+  beginningStocksMMT?: number;
+  imports1000MT?: number;
+  exports1000MT?: number;
+  totalSupply1000MT?: number;
+  stocksToUseRatioPct?: number;
+  areaHarvested1000HA?: number;
+  yieldMTHA?: number;
+}
+
+export interface WasdeTelemetryData {
+  marketYear: string;
+  source: string;
+  lastUpdated: string;
+  production: { mmt: number; kmt: string };
+  consumption: { mmt: number; kmt: string };
+  endingStocks: { mmt: number; stuRatio: string };
+  exports: { mmt: number; kmt: string };
+  areaHarvested: { mha: number; kha: string };
+  yield: { mtPerHa: number; kgPerHa: string };
+  executiveBrief: string;
+}
+
+export const defaultWasdeTelemetry: WasdeTelemetryData = {
+  marketYear: '2026',
+  source: 'USDA FAS PSD',
+  lastUpdated: '10:38:34 PM KST',
+  production: { mmt: 822.4, kmt: '822,432' },
+  consumption: { mmt: 822.5, kmt: '822,456' },
+  endingStocks: { mmt: 276.3, stuRatio: '33.6%' },
+  exports: { mmt: 211.8, kmt: '211,768' },
+  areaHarvested: { mha: 215.3, kha: '215,326' },
+  yield: { mtPerHa: 3.82, kgPerHa: '3,820' },
+  executiveBrief: '미국산 HRW 소맥은 560~590 USd/bu 범위의 단기 횡보세를 유지하고 있습니다. 미국 남부 평원지대의 지속적인 토양 수분 부족과 2025/26 흑해 수출 물량 감소가 상승 요인으로 작용하고 있습니다. 반면 러시아의 풍부한 이월 재고와 이집트 GASC 입찰 수요 둔화가 상단을 제한하고 있습니다. 국내 식품 제조 구매 데스크에서는 현재 570~575 USd 밴드 부근에서 1분기 물리적 수입 물량의 조달 약정을 체결할 것을 권고합니다.'
+};
+
+interface CommodityDetailProps {
+  commodity: Commodity;
+  onNavigateBack: () => void;
+  currency: Currency;
+  onOpenExportModal?: () => void;
+  onRefreshGemini: () => void;
+  isSyncing: boolean;
+  modelVersion?: string;
+}
+
+const getPdfFilename = (nameEn: string) => {
+  const cleanName = nameEn.trim().replace(/\s+/g, '');
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  const hours = String(now.getHours()).padStart(2, '0');
+  const minutes = String(now.getMinutes()).padStart(2, '0');
+  const yyyymmdd = `${year}${month}${day}`;
+  const hhmm = `${hours}${minutes}`;
+  return `Nongshim_RMS_${cleanName}_${yyyymmdd}_${hhmm}.pdf`;
+};
+
+// Helper function for contract month mapping
+const formatContractMonth = (monthStr: string) => {
+  if (!monthStr) return '';
+  const months: Record<string, string> = {
+    'January': '1월물', 'February': '2월물', 'March': '3월물',
+    'April': '4월물', 'May': '5월물', 'June': '6월물',
+    'July': '7월물', 'August': '8월물', 'September': '9월물',
+    'October': '10월물', 'November': '11월물', 'December': '12월물'
+  };
+  return months[monthStr] || monthStr;
+};
+
+const getRecommendationColor = (text: string) => {
+  if (!text) return 'bg-amber-50 border border-amber-200 text-amber-800 font-semibold px-2.5 py-1 rounded-md';
+
+  // Tier 1: HIGH RISK / TIGHT BUFFER (Solid Red)
+  if (text.includes('30~45일') || text.includes('즉시') || text.includes('조치 필요')) {
+    return 'bg-[#DF0029] text-white font-bold px-2.5 py-1 rounded-md shadow-xs';
+  }
+
+  // Tier 2: FAVORABLE / EXTENDED LOCK (Solid Green - Max 75d)
+  if (text.includes('60~75일') || text.includes('60일') || text.includes('75일') || text.includes('우호적')) {
+    return 'bg-[#F0FDF4] border border-[#86EFAC] text-[#059669] font-semibold px-2.5 py-1 rounded-md';
+  }
+
+  // Tier 3: HYBRID SPOT/FORWARD (Solid Amber)
+  if (text.includes('스팟/선도') || text.includes('혼합')) {
+    return 'bg-amber-500 text-white font-bold px-2.5 py-1 rounded-md shadow-xs';
+  }
+
+  // Tier 4: STANDARD FLEXIBLE (Soft Light Amber - 45~60d)
+  return 'bg-amber-50 border border-amber-200 text-amber-800 font-semibold px-2.5 py-1 rounded-md';
+};
+
+interface ChartPoint {
+  date: string;
+  price: number;
+  x: number;
+  y: number;
+}
+
+interface ChartTick {
+  value: number;
+  y: number;
+}
+
+interface TimeframeChartData {
+  axisLabels: [string, string, string, string];
+  high: number;
+  low: number;
+  avg: number;
+  minVal: number;
+  maxVal: number;
+  ticks: ChartTick[];
+  linePath: string;
+  areaPath: string;
+  maPath: string;
+  points: ChartPoint[];
+}
+
+interface ExchangeInfo {
+  name: string;
+  url: string;
+}
+
+export interface OriginItem {
+  region: string;
+  production: string;
+  exports: string;
+  endingStocks: string;
+  riskAssessment: string;
+  status: string;
+  statusColor: 'green' | 'yellow' | 'red';
+  sourceName: string;
+}
+
+export const COMMODITY_ORIGINS_MAP: Record<string, OriginItem[]> = {
+  wheat: [
+    {
+      region: '미국 (HRW/SRW)', production: '53.7M MT', exports: '수출 22.5M MT', endingStocks: '기말재고 22.1M MT',
+      riskAssessment: '생산 전망 상향 및 미 태평양(PNW) 수출 물류 원활', status: '정상', statusColor: 'green', sourceName: 'USDA WASDE · AMIS',
+    },
+    {
+      region: '호주 (APW/AHW)', production: '31.8M MT', exports: '수출 23.5M MT', endingStocks: '기말재고 4.8M MT',
+      riskAssessment: '생산 상향 전망이나 동부 건조 지속으로 단수 모니터링', status: '모니터링', statusColor: 'yellow', sourceName: 'ABARES · AMIS',
+    },
+    {
+      region: '캐나다 (CWRS)', production: '34.3M MT', exports: '수출 25.0M MT', endingStocks: '기말재고 5.2M MT',
+      riskAssessment: '봄밀 생산 전망 변화 모니터링 및 밴쿠버 수출 선적 안정', status: '정상', statusColor: 'green', sourceName: 'AAFC · AMIS',
+    },
+    {
+      region: '유럽연합 (프랑스/독일)', production: '122.6M MT', exports: '수출 30.0M MT', endingStocks: '기말재고 10.8M MT',
+      riskAssessment: '서유럽 수확기 강우에 따른 제분용 품질 편차 모니터링', status: '모니터링', statusColor: 'yellow', sourceName: 'EU Agri-food API · AMIS',
+    },
+    {
+      region: '러시아 (12.5% 제분용)', production: '81.5M MT', exports: '수출 48.0M MT', endingStocks: '기말재고 11.2M MT',
+      riskAssessment: '흑해 수출·항만 물류 및 정책 변수 주의', status: '주의', statusColor: 'red', sourceName: 'USDA FAS PSD · AMIS',
+    },
+  ],
+  corn: [
+    {
+      region: '미국 (Corn Belt)',
+      production: '385.0M MT',
+      exports: '수출 58.5M MT',
+      endingStocks: '기말재고 52.0M MT',
+      riskAssessment: '저위험 - 풍작 수급 및 미 걸프만/PNW 원활 선적',
+      status: '정상 선적',
+      statusColor: 'green',
+      sourceName: 'USDA FAS',
+    },
+    {
+      region: '브라질 (Mato Grosso / Safrinha)',
+      production: '127.0M MT',
+      exports: '수출 49.0M MT',
+      endingStocks: '기말재고 10.5M MT',
+      riskAssessment: '저위험 - 2기작(사프리냐) 수확 원활 및 대두 교대 선적',
+      status: '정상 선적',
+      statusColor: 'green',
+      sourceName: 'CONAB',
+    },
+    {
+      region: '아르헨티나 (Pampas)',
+      production: '51.0M MT',
+      exports: '수출 36.0M MT',
+      endingStocks: '기말재고 6.8M MT',
+      riskAssessment: '중위험 - 파라나강 수위 저하에 따른 만재 흘수 제한 모니터링',
+      status: '모니터링',
+      statusColor: 'yellow',
+      sourceName: 'BNA',
+    },
+    {
+      region: '우크라이나 (Black Sea)',
+      production: '27.0M MT',
+      exports: '수출 24.0M MT',
+      endingStocks: '기말재고 2.5M MT',
+      riskAssessment: '고위험 - 군사 분쟁 및 흑해 항만 선적 지연 불확실성',
+      status: '주의 요망',
+      statusColor: 'red',
+      sourceName: 'IGC',
+    },
+  ],
+  soybean: [
+    {
+      region: '브라질 (Mato Grosso)',
+      production: '169.0M MT',
+      exports: '수출 105.0M MT',
+      endingStocks: '기말재고 38.0M MT',
+      riskAssessment: '저위험 - 사상 최대 수확량 및 글로벌 수출 주도',
+      status: '정상 선적',
+      statusColor: 'green',
+      sourceName: 'CONAB',
+    },
+    {
+      region: '미국 (Midwest)',
+      production: '124.8M MT',
+      exports: '수출 49.7M MT',
+      endingStocks: '기말재고 15.0M MT',
+      riskAssessment: '저위험 - 수확 완료 및 미 걸프/태평양 연안 공급 안정',
+      status: '정상 선적',
+      statusColor: 'green',
+      sourceName: 'USDA FAS',
+    },
+    {
+      region: '아르헨티나 (Pampas)',
+      production: '51.0M MT',
+      exports: '수출 4.5M MT',
+      endingStocks: '기말재고 24.0M MT',
+      riskAssessment: '중위험 - 국내 착유 가공용 비축 집중 및 통화 불확실성',
+      status: '모니터링',
+      statusColor: 'yellow',
+      sourceName: 'BNA',
+    },
+    {
+      region: '파라과이 (Alto Paraná)',
+      production: '10.5M MT',
+      exports: '수출 6.8M MT',
+      endingStocks: '기말재고 1.2M MT',
+      riskAssessment: '저위험 - 바지선 내륙 수운 정상 가동',
+      status: '정상 선적',
+      statusColor: 'green',
+      sourceName: 'USDA FAS',
+    },
+  ],
+  'soybean-oil': [
+    {
+      region: '아르헨티나 (Rosario Crushing Hub)',
+      production: '7.8M MT',
+      exports: '수출 5.2M MT',
+      endingStocks: '기말재고 0.4M MT',
+      riskAssessment: '중위험 - 로사리오 착유 공장 가동률 및 파라나강 운송 주시',
+      status: '모니터링',
+      statusColor: 'yellow',
+      sourceName: 'BNA',
+    },
+    {
+      region: '브라질 (Mato Grosso/Paraná)',
+      production: '10.8M MT',
+      exports: '수출 2.4M MT',
+      endingStocks: '기말재고 0.5M MT',
+      riskAssessment: '저위험 - 바이오디젤 의무혼합(B14) 및 수출 물량 적정 유지',
+      status: '정상 선적',
+      statusColor: 'green',
+      sourceName: 'CONAB',
+    },
+    {
+      region: '미국 (Midwest Crushing)',
+      production: '12.2M MT',
+      exports: '수출 0.4M MT',
+      endingStocks: '기말재고 0.8M MT',
+      riskAssessment: '저위험 - 자국 재생디젤(RD) 수요 집중으로 수출 가용량 제한적',
+      status: '정상 선적',
+      statusColor: 'green',
+      sourceName: 'USDA FAS',
+    },
+    {
+      region: '유럽연합 (독일/네덜란드)',
+      production: '3.1M MT',
+      exports: '수출 0.9M MT',
+      endingStocks: '기말재고 0.2M MT',
+      riskAssessment: '저위험 - 로테르담 정유 설비 정상 가동 및 유럽 역내 수급 균형',
+      status: '정상 선적',
+      statusColor: 'green',
+      sourceName: 'EC AGRI',
+    },
+  ],
+  'palm-oil': [
+    {
+      region: '인도네시아 (Sumatra/Kalimantan)',
+      production: '47.0M MT',
+      exports: '수출 28.0M MT',
+      endingStocks: '기말재고 3.2M MT',
+      riskAssessment: '중위험 (B40 의무화) - B40 바이오디젤 의무화 및 DMO 수출 규제 모니터링',
+      status: '모니터링',
+      statusColor: 'yellow',
+      sourceName: 'GAPKI',
+    },
+    {
+      region: '말레이시아 (Sabah/Sarawak)',
+      production: '19.2M MT',
+      exports: '수출 15.5M MT',
+      endingStocks: '기말재고 1.8M MT',
+      riskAssessment: '저위험 - 외국인 노동력 정상화 및 주요 수출항 선적 안정',
+      status: '정상 선적',
+      statusColor: 'green',
+      sourceName: 'MPOB',
+    },
+    {
+      region: '콜롬비아 (Cesar/Meta)',
+      production: '1.8M MT',
+      exports: '수출 0.7M MT',
+      endingStocks: '기말재고 0.1M MT',
+      riskAssessment: '저위험 - 중남미 역내 및 대미 공급 지속',
+      status: '정상 선적',
+      statusColor: 'green',
+      sourceName: 'Fedepalma',
+    },
+    {
+      region: '태국 (Southern Provinces)',
+      production: '3.4M MT',
+      exports: '수출 0.9M MT',
+      endingStocks: '기말재고 0.3M MT',
+      riskAssessment: '저위험 - 내수 식용유 안정화 우선 및 국경 무역 정상',
+      status: '정상 선적',
+      statusColor: 'green',
+      sourceName: 'OAE Thailand',
+    },
+  ],
+  sugar: [
+    {
+      region: '브라질 (Center-South)',
+      production: '42.5M MT',
+      exports: '수출 33.0M MT',
+      endingStocks: '기말재고 3.5M MT',
+      riskAssessment: '저위험 - 사탕수수 분쇄 순조 및 산투스(Santos) 항만 처리량 양호',
+      status: '정상 선적',
+      statusColor: 'green',
+      sourceName: 'UNICA',
+    },
+    {
+      region: '인도 (Maharashtra/UP)',
+      production: '32.0M MT',
+      exports: '수출 1.0M MT',
+      endingStocks: '기말재고 8.5M MT',
+      riskAssessment: '고위험 (수출 제한) - 에탄올 전용 정책 및 정부 상업 수출 제한 조치 지속',
+      status: '주의 요망',
+      statusColor: 'red',
+      sourceName: 'ISMA',
+    },
+    {
+      region: '태국 (Central/Northeast)',
+      production: '10.0M MT',
+      exports: '수출 7.0M MT',
+      endingStocks: '기말재고 1.2M MT',
+      riskAssessment: '중위험 - 강수량 회복으로 수확량 반등, 방콕항 출하 대기',
+      status: '모니터링',
+      statusColor: 'yellow',
+      sourceName: 'OCSB Thailand',
+    },
+    {
+      region: '호주 (Queensland)',
+      production: '4.2M MT',
+      exports: '수출 3.4M MT',
+      endingStocks: '기말재고 0.4M MT',
+      riskAssessment: '저위험 - 벌크 터미널 인프라 우수 및 고품질 원당 안정 공급',
+      status: '정상 선적',
+      statusColor: 'green',
+      sourceName: 'QSL',
+    },
+  ],
+  'potato-starch': [
+    {
+      region: '네덜란드 (Avebe / Groningen)',
+      production: '245.0K MT',
+      exports: '수출 160.0K MT',
+      endingStocks: '기말재고 42.0K MT',
+      riskAssessment: '저위험 - 품종 개량 및 선진 가공 공정 안정 가동',
+      status: '정상 선적',
+      statusColor: 'green',
+      sourceName: 'EC MARS',
+    },
+    {
+      region: '독일 (Emsland Group)',
+      production: '210.0K MT',
+      exports: '수출 125.0K MT',
+      endingStocks: '기말재고 36.0K MT',
+      riskAssessment: '저위험 - 가공용 감자 수확량 적정 및 고품질 변성전분 제조 원활',
+      status: '정상 선적',
+      statusColor: 'green',
+      sourceName: 'EC MARS',
+    },
+    {
+      region: '덴마크 (KMC / Jutland)',
+      production: '165.0K MT',
+      exports: '수출 120.0K MT',
+      endingStocks: '기말재고 25.0K MT',
+      riskAssessment: '저위험 - 스칸디나비아 협동조합 물류 및 대아시아 수출 안정',
+      status: '정상 선적',
+      statusColor: 'green',
+      sourceName: 'EC MARS',
+    },
+    {
+      region: '폴란드 (WPPZ / Wielkopolska)',
+      production: '115.0K MT',
+      exports: '수출 58.0K MT',
+      endingStocks: '기말재고 21.0K MT',
+      riskAssessment: '저위험 - 동유럽 산지 단가 경쟁력 유지',
+      status: '정상 선적',
+      statusColor: 'green',
+      sourceName: 'EC MARS',
+    },
+    {
+      region: '프랑스 (Roquette)',
+      production: '70.0K MT',
+      exports: '수출 42.0K MT',
+      endingStocks: '기말재고 13.0K MT',
+      riskAssessment: '보통 - 특수 식품 전분 라인 공급 모니터링',
+      status: '모니터링',
+      statusColor: 'yellow',
+      sourceName: 'EC MARS',
+    },
+  ],
+  'tapioca-starch': [
+    {
+      region: '태국 (Korat / Isan)',
+      production: '3.2M MT',
+      exports: '수출 2.8M MT',
+      endingStocks: '기말재고 0.4M MT',
+      riskAssessment: '저위험 - 카사바 뿌리 수확 호조 및 방콕/람차방항 출하 안정',
+      status: '정상 선적',
+      statusColor: 'green',
+      sourceName: 'TTSA',
+    },
+    {
+      region: '베트남 (Tây Ninh / Central)',
+      production: '1.4M MT',
+      exports: '수출 1.1M MT',
+      endingStocks: '기말재고 0.2M MT',
+      riskAssessment: '보통 - 중국향 국경 무역 수요 경합 주시',
+      status: '모니터링',
+      statusColor: 'yellow',
+      sourceName: 'VTA',
+    },
+    {
+      region: '인도네시아 (Lampung)',
+      production: '0.9M MT',
+      exports: '수출 0.3M MT',
+      endingStocks: '기말재고 0.1M MT',
+      riskAssessment: '저위험 - 내수 스낵/식품 가공 가용량 우선 소비',
+      status: '정상 선적',
+      statusColor: 'green',
+      sourceName: 'BPS',
+    },
+    {
+      region: '캄보디아 (Battambang)',
+      production: '0.6M MT',
+      exports: '수출 0.5M MT',
+      endingStocks: '기말재고 0.1M MT',
+      riskAssessment: '보통 - 태국/베트남 가공 공장향 원료 칩 수송 모니터링',
+      status: '모니터링',
+      statusColor: 'yellow',
+      sourceName: 'MAFF',
+    },
+  ],
+};
+
+export const EXTERNAL_CHART_URLS: Record<string, string> = {
+  'soybean': 'https://finance.yahoo.com/quote/ZS=F/',
+  'soybean-oil': 'https://finance.yahoo.com/quote/ZL=F/',
+  'corn': 'https://finance.yahoo.com/quote/ZC=F/',
+  'sugar': 'https://finance.yahoo.com/quote/SB=F/',
+  'palm-oil': 'https://www.tradingview.com/symbols/MYX-FCPO1!/',
+  // Keep existing working links for wheat and starches untouched:
+  'wheat': 'https://uswheat.org/market-information/price-report/',
+  'potato-starch': 'https://tradingeconomics.com/commodity/potatoes',
+  'tapioca-starch': 'https://www.thaitapiocastarch.org/en/information/statistics/weekly_tapioca_starch_price',
+};
+
+export const SOURCE_LABELS: Record<string, string> = {
+  'corn': 'CBOT (ZC)',
+  'soybean': 'CBOT (ZS)',
+  'soybean-oil': 'CBOT (ZL)',
+  'sugar': 'ICE (SB)',
+  'palm-oil': 'MDEX (FCPO)',
+  'wheat': 'U.S. Wheat Associates',
+  'potato-starch': 'EEX / EU Spot',
+  'tapioca-starch': 'TTSA Bangkok',
+};
+
+export const getExchangeInfo = (commodityId: string) => {
+  const name = SOURCE_LABELS[commodityId] || 'CME Group';
+  const url = EXTERNAL_CHART_URLS[commodityId] || 'https://www.cmegroup.com/markets/agriculture.html';
+  return { name, url };
+};
+
+export const getNiceTicks = (min: number, max: number, count = 5): number[] => {
+  if (min === max) return [min];
+  const rawStep = (max - min) / (count - 1);
+  const mag = 10 ** Math.floor(Math.log10(rawStep || 1));
+  const normStep = rawStep / mag;
+  let multiplier: number;
+  if (normStep < 1.5) multiplier = 1;
+  else if (normStep < 3) multiplier = 2;
+  else if (normStep < 7) multiplier = 5;
+  else multiplier = 10;
+
+  const niceStep = multiplier * mag;
+  const startTick = Math.floor(min / niceStep) * niceStep;
+
+  const ticks: number[] = [];
+  for (let i = 0; i < count; i++) {
+    ticks.push(startTick + i * niceStep);
+  }
+  return ticks;
+};
+
+export const getNiceYAxisTicks = getNiceTicks;
+
+const formatDateStr = (date: Date) => {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}.${m}.${d}`;
+};
+
+const formatMonthDay = (date: Date) => {
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${m}.${d}`;
+};
+
+export type Timeframe = '1M' | '3M' | '6M' | '1Y';
+
+const getTimeframeChartData = (
+  basePrice: number,
+  timeframe: Timeframe,
+  sparkline: number[] = [10, 12, 11, 14, 13, 15]
+): TimeframeChartData => {
+  const configs: Record<
+    Timeframe,
+    {
+      days: number;
+      steps: number;
+      priceMultipliers: number[];
+      maMultipliers: number[];
+    }
+  > = {
+    '1M': {
+      days: 30,
+      steps: 30,
+      priceMultipliers: [0.985, 0.992, 0.988, 1.006, 0.998, 1.012, 1.0],
+      maMultipliers: [0.991, 0.993, 0.995, 0.997, 1.001, 1.003, 1.002],
+    },
+    '3M': {
+      days: 90,
+      steps: 45,
+      priceMultipliers: [0.935, 0.965, 0.948, 0.985, 0.972, 1.028, 1.0],
+      maMultipliers: [0.955, 0.965, 0.972, 0.985, 0.996, 1.008, 1.004],
+    },
+    '6M': {
+      days: 180,
+      steps: 50,
+      priceMultipliers: [0.910, 0.940, 0.970, 1.030, 1.015, 0.985, 1.0],
+      maMultipliers: [0.930, 0.945, 0.965, 0.995, 1.008, 1.012, 1.005],
+    },
+    '1Y': {
+      days: 365,
+      steps: 52,
+      priceMultipliers: [0.865, 0.915, 0.985, 1.065, 1.035, 0.965, 1.0],
+      maMultipliers: [0.895, 0.920, 0.955, 0.990, 1.015, 1.020, 1.008],
+    },
+  };
+
+  const cfg = configs[timeframe];
+  const sparkMin = Math.min(...sparkline);
+  const sparkRange = Math.max(...sparkline) - sparkMin || 1;
+  const sparkNorm = sparkline.map((v) => (v - sparkMin) / sparkRange - 0.5);
+
+  const numPoints = cfg.steps;
+  const totalDays = cfg.days;
+
+  const pointsData: Array<{ date: string; price: number; maPrice: number }> = [];
+
+  for (let i = 0; i < numPoints; i++) {
+    const progress = i / (numPoints - 1);
+    const dayOffset = Math.round((1 - progress) * totalDays);
+    const pointDate = new Date();
+    pointDate.setDate(pointDate.getDate() - dayOffset);
+    const dateStr = formatDateStr(pointDate);
+
+    const baseIdx = progress * (cfg.priceMultipliers.length - 1);
+    const i0 = Math.floor(baseIdx);
+    const i1 = Math.min(cfg.priceMultipliers.length - 1, Math.ceil(baseIdx));
+    const t = baseIdx - i0;
+    const rawMult = cfg.priceMultipliers[i0] * (1 - t) + cfg.priceMultipliers[i1] * t;
+    const sparkNudge = (sparkNorm[i % sparkNorm.length] || 0) * 0.015 * Math.sin(progress * Math.PI * 3);
+
+    const price = i === numPoints - 1 ? basePrice : basePrice * (rawMult + sparkNudge);
+
+    const maMult = cfg.maMultipliers[i0] * (1 - t) + cfg.maMultipliers[i1] * t;
+    const maPrice = i === numPoints - 1 ? basePrice * 1.002 : basePrice * maMult;
+
+    pointsData.push({ date: dateStr, price, maPrice });
+  }
+
+  const allVals = pointsData.flatMap((p) => [p.price, p.maPrice]);
+  const high = Math.max(...allVals);
+  const low = Math.min(...allVals);
+  const avg = pointsData.reduce((sum, val) => sum + val.price, 0) / pointsData.length;
+
+  const absoluteMaxPrice = Math.max(...allVals, basePrice, high);
+  const absoluteMinPrice = Math.min(...allVals, basePrice, low);
+
+  const minVal = absoluteMinPrice * 0.95;
+  const maxVal = absoluteMaxPrice * 1.08; // Padded to prevent top clipping
+  const valRange = maxVal - minVal || 1;
+
+  const width = 500;
+  const height = 150;
+  const padTop = 25;
+  const padBottom = 25;
+  const usableHeight = height - padTop - padBottom;
+
+  const chartPoints: ChartPoint[] = pointsData.map((pt, idx) => {
+    const x = Math.round((idx / (numPoints - 1)) * width);
+    const y = Math.round(height - padBottom - ((pt.price - minVal) / valRange) * usableHeight);
+    return {
+      date: pt.date,
+      price: pt.price,
+      x,
+      y,
+    };
+  });
+
+  const maCoords = pointsData.map((pt, idx) => {
+    const x = Math.round((idx / (numPoints - 1)) * width);
+    const y = Math.round(height - padBottom - ((pt.maPrice - minVal) / valRange) * usableHeight);
+    return { x, y };
+  });
+
+  const buildSplinePath = (coords: { x: number; y: number }[]) => {
+    if (coords.length < 2) return '';
+    let path = `M ${coords[0].x},${coords[0].y}`;
+    for (let i = 0; i < coords.length - 1; i++) {
+      const curr = coords[i];
+      const next = coords[i + 1];
+      const cpX = Math.round((curr.x + next.x) / 2);
+      path += ` C ${cpX},${curr.y} ${cpX},${next.y} ${next.x},${next.y}`;
+    }
+    return path;
+  };
+
+  const linePath = buildSplinePath(chartPoints);
+  const areaPath = `${linePath} L ${width},150 L 0,150 Z`;
+  const maPath = buildSplinePath(maCoords);
+
+  // Compute nice Y-axis ticks using Nice Numbers algorithm
+  const niceTickValues = getNiceYAxisTicks(minVal, maxVal, 5);
+  const ticks: ChartTick[] = niceTickValues.map((value) => {
+    const y = Math.round(height - padBottom - ((value - minVal) / valRange) * usableHeight);
+    return { value, y };
+  });
+
+  // Dynamic axis labels based on active timeframe
+  let axisLabels: [string, string, string, string];
+  const now = new Date();
+
+  if (timeframe === '1M' || timeframe === '3M' || timeframe === '6M') {
+    const getDateAt = (daysAgo: number) => {
+      const d = new Date(now);
+      d.setDate(d.getDate() - daysAgo);
+      return formatMonthDay(d);
+    };
+    axisLabels = [
+      getDateAt(totalDays),
+      getDateAt(Math.round((totalDays * 2) / 3)),
+      getDateAt(Math.round(totalDays / 3)),
+      formatMonthDay(now),
+    ];
+  } else {
+    // '1Y'
+    const getYearMonthAt = (daysAgo: number) => {
+      const d = new Date(now);
+      d.setDate(d.getDate() - daysAgo);
+      return `${String(d.getFullYear()).slice(2)}.${String(d.getMonth() + 1).padStart(2, '0')}`;
+    };
+    axisLabels = [
+      getYearMonthAt(totalDays),
+      getYearMonthAt(Math.round((totalDays * 2) / 3)),
+      getYearMonthAt(Math.round(totalDays / 3)),
+      `${String(now.getFullYear()).slice(2)}.${String(now.getMonth() + 1).padStart(2, '0')}`,
+    ];
+  }
+
+  return {
+    axisLabels,
+    high,
+    low,
+    avg,
+    minVal,
+    maxVal,
+    ticks,
+    linePath,
+    areaPath,
+    maPath,
+    points: chartPoints,
+  };
+};
+
+
+
+
+export const CommodityDetail: React.FC<CommodityDetailProps> = ({
+  commodity,
+  onNavigateBack,
+  currency,
+  onOpenExportModal,
+  onRefreshGemini,
+  isSyncing,
+  modelVersion
+}) => {
+  const [activeTimeframe, setActiveTimeframe] = useState<Timeframe>('3M');
+  const exchangeRate = currency === 'KRW' ? 1388.5 : currency === 'EUR' ? 1 / 1.08 : 1;
+  const currencySymbol = currency === 'KRW' ? '₩' : currency === 'EUR' ? '€' : '$';
+  const currencyLabel = currency === 'KRW' ? 'KRW/MT' : currency === 'EUR' ? 'EUR/MT' : 'USD/MT';
+
+  const formatPriceValue = (usdVal: number, decimals: number = 2) => {
+    const converted = usdVal * exchangeRate;
+    if (currency === 'KRW') {
+      return Math.round(converted).toLocaleString('en-US');
+    }
+    return converted.toLocaleString('en-US', {
+      minimumFractionDigits: decimals,
+      maximumFractionDigits: decimals,
+    });
+  };
+
+  const formatConvertedPrice = (val: number, decimals: number = 2) => {
+    if (currency === 'KRW') {
+      return Math.round(val).toLocaleString('en-US');
+    }
+    return val.toLocaleString('en-US', {
+      minimumFractionDigits: decimals,
+      maximumFractionDigits: decimals,
+    });
+  };
+
+  const formatWheatUsd = (val: number, decimals: number = 2) =>
+    val.toLocaleString('en-US', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+
+  const isWheat = commodity.id === 'wheat';
+  const isCorn = commodity.id === 'corn';
+
+  const [usdaData, setUsdaData] = useState<UsdaWheatSummary | null>(null);
+  const [usdaLastUpdated, setUsdaLastUpdated] = useState<string>('');
+  const [isUsdaFailed, setIsUsdaFailed] = useState<boolean>(false);
+  const [isUsdaLoading, setIsUsdaLoading] = useState<boolean>(true);
+  const lastSuccessfulUsdaDataRef = useRef<UsdaWheatSummary | null>(null);
+
+  // U.S. Wheat Associates Live & Historical Price Report State
+  const [usWheatHistory, setUsWheatHistory] = useState<UsWheatPriceHistoryResponse | null>(null);
+  const [usWheatLastRetrieved, setUsWheatLastRetrieved] = useState<string>('');
+  const [isUsWheatFailed, setIsUsWheatFailed] = useState<boolean>(false);
+  const lastSuccessfulWheatHistoryRef = useRef<UsWheatPriceHistoryResponse | null>(null);
+
+
+  // AMIS Market Monitor (Wheat) – verified monthly market intelligence.
+  const [amisResponse, setAmisResponse] = useState<AmisWheatResponse | null>(null);
+  const [isAmisFailed, setIsAmisFailed] = useState<boolean>(false);
+  const lastSuccessfulAmisRef = useRef<AmisWheatResponse | null>(null);
+
+  // Wheat-specific sourcing origin radar. Other commodities keep the target project's existing origin logic.
+  const [originRadarData, setOriginRadarData] = useState<OriginItem[] | null>(null);
+
+  // CBOT & Commodity Live & Historical Price Report State
+  const [historicalData, setHistoricalData] = useState<{
+    success: boolean;
+    symbol: string;
+    source: string;
+    data: Array<{ date: string; centsPerBushel: number; usdPerMT: number }>;
+  } | null>(null);
+  const [isHistoryFailed, setIsHistoryFailed] = useState<boolean>(false);
+  const lastSuccessfulHistoryRef = useRef<any>(null);
+
+  // Dynamic WASDE 6-Metric Telemetry Pipeline State
+  const [wasdeTelemetry, setWasdeTelemetry] = useState<WasdeTelemetryData>(defaultWasdeTelemetry);
+  const [isWasdeTelemetryFailed, setIsWasdeTelemetryFailed] = useState<boolean>(false);
+  const lastSuccessfulWasdeTelemetryRef = useRef<WasdeTelemetryData>(defaultWasdeTelemetry);
+
+  const selectedCommodity = commodity;
+
+  // Gemini AI Analysis State
+  const [aiInsight, setAiInsight] = useState<{
+    confidenceScore: number;
+    deskRecommendation: string;
+    executiveSummary: string;
+    bullishFactors: string[];
+    bearishFactors: string[];
+    watchItems: string[];
+  } | null>(null);
+  const [isAiLoading, setIsAiLoading] = useState<boolean>(true);
+  const [isAiError, setIsAiError] = useState<boolean>(false);
+  const [aiErrorMessage, setAiErrorMessage] = useState<string>('');
+
+  useEffect(() => {
+    let isMounted = true;
+    
+    async function fetchAiAnalysis() {
+      // Determine the active item slug/id
+      const commodityId = selectedCommodity?.id || (selectedCommodity as any)?.slug || (selectedCommodity as any)?.key;
+      if (!commodityId) return;
+
+      // Force clearing previous state (Corn) immediately
+      setAiInsight(null);
+      setIsAiLoading(true);
+      setIsAiError(false);
+
+      try {
+        const endpoint = commodityId === 'wheat'
+          ? '/api/wheat/ai-recommendation'
+          : `/api/ai-analysis/${commodityId}`;
+        const res = await fetch(endpoint, { cache: 'no-store' });
+        
+        let json: any;
+        const contentType = res.headers.get('content-type') || '';
+        if (contentType.includes('application/json')) {
+          json = await res.json();
+        } else {
+          const text = await res.text();
+          try {
+            json = JSON.parse(text);
+          } catch {
+            // Not valid JSON (e.g., plain text upstream proxy error like "Rate exceeded.")
+            console.warn(`[CommodityDetail] Upstream returned non-JSON response (${res.status}):`, text);
+            json = {
+              success: false,
+              errorMessage: `서버 응답 오류 (${res.status}): ${text.slice(0, 80)}`
+            };
+          }
+        }
+
+        if (commodityId === 'wheat' && json.success && json.recommendation) {
+          if (isMounted) {
+            setAiInsight({
+              confidenceScore: json.recommendation.confidenceScore ?? 88,
+              deskRecommendation: json.recommendation.deskRecommendation || '현 수준 관망',
+              executiveSummary: json.recommendation.summaryParagraph || '',
+              bullishFactors: Array.isArray(json.recommendation.bullishFactors) ? json.recommendation.bullishFactors : [],
+              bearishFactors: Array.isArray(json.recommendation.bearishFactors) ? json.recommendation.bearishFactors : [],
+              watchItems: Array.isArray(json.recommendation.watchItems) ? json.recommendation.watchItems : [],
+            });
+          }
+        } else if (json.success && json.data) {
+          if (isMounted) {
+            setAiInsight(json.data);
+          }
+        } else {
+          console.warn("AI Analysis returned notice or baseline format:", json);
+          if (isMounted) {
+            // If data exists in payload, use it
+            if (json.data) {
+              setAiInsight(json.data);
+            } else {
+              setIsAiError(true);
+              setAiErrorMessage(json.error || json.errorMessage || 'AI 분석 응답을 수신하지 못했습니다.');
+            }
+          }
+        }
+      } catch (err: any) {
+        console.warn("Failed to fetch AI analysis, activating fallback state:", err);
+        if (isMounted) {
+          setIsAiError(true);
+          setAiErrorMessage(err.message || 'AI 분석 데이터를 불러오는 중 오류가 발생했습니다.');
+        }
+      } finally {
+        if (isMounted) {
+          setIsAiLoading(false);
+        }
+      }
+    }
+
+    fetchAiAnalysis();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [selectedCommodity]);
+
+  useEffect(() => {
+    if (isWheat) return;
+
+    let isMounted = true;
+
+    const fetchPriceHistory = async () => {
+      try {
+        const res = await fetch(`/api/history?commodity=${commodity.id}&timeframe=${activeTimeframe}`);
+        if (!res.ok) {
+          throw new Error(`HTTP ${res.status}`);
+        }
+        const json = await res.json();
+        if (json.success && json.data && json.data.length > 0) {
+          if (isMounted) {
+            setHistoricalData(json);
+            lastSuccessfulHistoryRef.current = json;
+            setIsHistoryFailed(false);
+          }
+        } else {
+          throw new Error('Invalid historical data');
+        }
+      } catch (err) {
+        console.warn('[CommodityDetail] Price history fetch notice:', err);
+        if (isMounted) {
+          setIsHistoryFailed(true);
+          if (!historicalData && lastSuccessfulHistoryRef.current) {
+            setHistoricalData(lastSuccessfulHistoryRef.current);
+          }
+        }
+      }
+    };
+
+    fetchPriceHistory();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [commodity.id, isWheat, activeTimeframe, isSyncing]);
+
+  useEffect(() => {
+    if (!isWheat) return;
+
+    let isMounted = true;
+
+    const fetchWheatPriceHistory = async () => {
+      try {
+        const res = await fetch('/api/uswheat/price-history');
+        if (!res.ok) {
+          throw new Error(`HTTP ${res.status}`);
+        }
+        const json: UsWheatPriceHistoryResponse = await res.json();
+        if (json.success && json.data && json.data.length > 0) {
+          if (isMounted) {
+            setUsWheatHistory(json);
+            lastSuccessfulWheatHistoryRef.current = json;
+            setUsWheatLastRetrieved(json.lastRetrievalTime || '');
+            setIsUsWheatFailed(false);
+          }
+        } else {
+          throw new Error(json.errorMessage || 'Invalid U.S. Wheat data');
+        }
+      } catch (err) {
+        console.warn('[CommodityDetail] U.S. Wheat Associates fetch error:', err);
+        if (isMounted) {
+          setIsUsWheatFailed(true);
+          // Retain last successfully loaded data if available
+          if (!usWheatHistory && lastSuccessfulWheatHistoryRef.current) {
+            setUsWheatHistory(lastSuccessfulWheatHistoryRef.current);
+          }
+        }
+      }
+    };
+
+    fetchWheatPriceHistory();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [isWheat, isSyncing]);
+
+  useEffect(() => {
+    if (!isWheat) return;
+    let isMounted = true;
+
+    const fetchAmis = async () => {
+      try {
+        const res = await fetch('/api/amis/wheat', { cache: 'no-store' });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const json: AmisWheatResponse = await res.json();
+        if (!json.success || !json.data) throw new Error(json.errorMessage || 'Invalid AMIS response');
+        if (isMounted) {
+          setAmisResponse(json);
+          lastSuccessfulAmisRef.current = json;
+          setIsAmisFailed(false);
+        }
+      } catch (err) {
+        console.warn('[CommodityDetail] AMIS fetch notice:', err);
+        if (isMounted) {
+          setIsAmisFailed(true);
+          if (!amisResponse && lastSuccessfulAmisRef.current) setAmisResponse(lastSuccessfulAmisRef.current);
+        }
+      }
+    };
+
+    const fetchWheatOrigins = async () => {
+      try {
+        const res = await fetch('/api/wheat/origin-radar', { cache: 'no-store' });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const json = await res.json();
+        if (json.success && Array.isArray(json.origins) && json.origins.length > 0 && isMounted) {
+          setOriginRadarData(json.origins);
+        }
+      } catch (err) {
+        console.warn('[CommodityDetail] Wheat origin radar fetch notice:', err);
+      }
+    };
+
+    fetchAmis();
+    fetchWheatOrigins();
+    return () => { isMounted = false; };
+  }, [isWheat, isSyncing]);
+
+  // Universal USDA FAS PSD fetch logic for ALL commodities (Corn, Soybeans, Wheat, etc.)
+  useEffect(() => {
+    let isMounted = true;
+    setIsUsdaLoading(true);
+
+    const fetchUsdaPsd = async () => {
+      try {
+        const res = await fetch(`/api/usda/${commodity.id}`);
+        if (!res.ok) {
+          throw new Error(`HTTP ${res.status}`);
+        }
+        const json = await res.json();
+        if (json.success && json.data) {
+          if (isMounted) {
+            setUsdaData(json.data);
+            lastSuccessfulUsdaDataRef.current = json.data;
+            setUsdaLastUpdated(json.timestamp || json.data.timestamp || '10:38:34 PM KST');
+            setIsUsdaFailed(false);
+            setIsUsdaLoading(false);
+          }
+        } else {
+          throw new Error(json.errorMessage || 'Invalid USDA response');
+        }
+      } catch (err) {
+        console.warn('[CommodityDetail] USDA FAS PSD fetch notice:', err);
+        if (isMounted) {
+          setIsUsdaFailed(true);
+          setIsUsdaLoading(false);
+          // Retain last successful data on failure
+          if (!usdaData && lastSuccessfulUsdaDataRef.current) {
+            setUsdaData(lastSuccessfulUsdaDataRef.current);
+          }
+        }
+      }
+    };
+
+    fetchUsdaPsd();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [commodity.id, isSyncing]);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const fetchTelemetry = async () => {
+      try {
+        const res = await fetch(`/api/pipeline/telemetry?commodity=${commodity.id}`);
+        if (!res.ok) {
+          throw new Error(`HTTP ${res.status}`);
+        }
+        const json = await res.json();
+        if (json.wasde && isMounted) {
+          setWasdeTelemetry(json.wasde);
+          lastSuccessfulWasdeTelemetryRef.current = json.wasde;
+          setIsWasdeTelemetryFailed(false);
+        }
+      } catch (err) {
+        console.warn('[CommodityDetail] Telemetry WASDE fetch notice:', err);
+        if (isMounted) {
+          setIsWasdeTelemetryFailed(true);
+          if (lastSuccessfulWasdeTelemetryRef.current) {
+            setWasdeTelemetry(lastSuccessfulWasdeTelemetryRef.current);
+          }
+        }
+      }
+    };
+
+    fetchTelemetry();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [commodity.id, isSyncing]);
+
+  const stockToUseRatio =
+    (usdaData?.stocksToUseRatioPct ? `${usdaData.stocksToUseRatioPct}%` : null) ||
+    (wasdeTelemetry?.endingStocks?.stuRatio ? wasdeTelemetry.endingStocks.stuRatio : null) ||
+    commodity.wasdeLedger?.find((l) => l.item.includes('재고율'))?.reportNov ||
+    commodity.wasdeKpis?.endingStocks?.outlook ||
+    '-';
+
+  // Wheat benchmark is the verified HRW weekly price in USD/MT.
+  const hrwData = useMemo(() => {
+    if (!isWheat || !usWheatHistory?.data?.length) return null;
+    const points = usWheatHistory.data;
+    const latest = points[points.length - 1];
+    const prev = points.length >= 2 ? points[points.length - 2] : null;
+    const absoluteChangeMt = prev ? Number((latest.hrwMt - prev.hrwMt).toFixed(2)) : null;
+    const wowPct = prev && prev.hrwMt !== 0
+      ? Number((((latest.hrwMt - prev.hrwMt) / prev.hrwMt) * 100).toFixed(2))
+      : null;
+    const direction: 'up' | 'down' | 'unchanged' =
+      absoluteChangeMt == null || absoluteChangeMt === 0 ? 'unchanged' : absoluteChangeMt > 0 ? 'up' : 'down';
+
+    return {
+      latestPriceMt: latest.hrwMt,
+      absoluteChangeMt,
+      wowPct,
+      direction,
+      contractMonth: latest.contractMonth || usWheatHistory.metrics?.hrw?.contractMonth || '',
+      reportDate: latest.reportDate || usWheatHistory.reportDate,
+      prevReportDate: prev?.reportDate,
+      source: usWheatHistory.source || 'U.S. Wheat Associates',
+    };
+  }, [isWheat, usWheatHistory]);
+
+  const wheatLandedCost = useMemo(() => isWheat ? (usWheatHistory?.landedCost || null) : null, [isWheat, usWheatHistory]);
+  const amisData = amisResponse?.data;
+
+  const nonWheatRisk = useMemo(() => {
+    const rows = (commodity.originsLedger || []) as any[];
+    const high = rows.find((row) => row.riskLevel === 'High' || row.statusColor === 'red');
+    const medium = rows.find((row) => row.riskLevel === 'Medium' || row.statusColor === 'yellow');
+    const selected = high || medium || rows[0];
+    return {
+      level: high ? '경계' : medium ? '주의' : '안정',
+      summary: selected?.riskAssessment || '현재 확인된 주요 조달 리스크 없음',
+    } as { level: '안정' | '주의' | '경계'; summary: string };
+  }, [commodity.originsLedger]);
+
+  const procurementRiskLevel: '안정' | '주의' | '경계' = isWheat
+    ? (amisData?.macroRiskLevel || '주의')
+    : nonWheatRisk.level;
+  const procurementRiskSummary = isWheat
+    ? (amisData?.macroRiskSentenceKo || 'AMIS 최신 소맥 리스크 요약 연동 대기')
+    : nonWheatRisk.summary;
+
+  const activeDeskRecommendation =
+    aiInsight?.deskRecommendation ||
+    (aiInsight as any)?.recommendation ||
+    (isWheat
+      ? (hrwData?.wowPct != null && hrwData.wowPct <= -1.5 ? '분할구매 검토' : procurementRiskLevel === '경계' ? '일부 물량 선확보 검토' : '현 수준 관망')
+      : commodity.recommendedCoverage || '현 수준 관망');
+
+  const [liveOrigins, setLiveOrigins] = useState<any[]>([]);
+  useEffect(() => {
+    let isMounted = true;
+    const fetchLiveOrigins = async () => {
+      try {
+        const res = await fetch(`/api/origins/live?commodity=${commodity.id}`, { cache: 'no-store' });
+        if (res.ok) {
+          const json = await res.json();
+          if (json.success && Array.isArray(json.origins) && isMounted) {
+            setLiveOrigins(json.origins);
+          }
+        }
+      } catch (err) {
+        console.warn('[CommodityDetail] Live origins fetch notice:', err);
+      }
+    };
+    fetchLiveOrigins();
+    return () => {
+      isMounted = false;
+    };
+  }, [commodity.id]);
+
+  const combinedOrigins = useMemo(() => {
+    if (isWheat && originRadarData?.length) {
+      return originRadarData;
+    }
+    const baseOrigins = COMMODITY_ORIGINS_MAP[commodity.id] || (commodity.originsLedger as any) || [];
+    const prodMmt = usdaData?.productionMMT || wasdeTelemetry?.production?.mmt || 0;
+    const expMmt = usdaData?.exports1000MT ? (usdaData.exports1000MT / 1000) : (wasdeTelemetry?.exports?.mmt || 0);
+    const stockMmt = usdaData?.endingStocksMMT || wasdeTelemetry?.endingStocks?.mmt || 0;
+
+    return baseOrigins.map((orig, idx) => {
+      const liveMatch = liveOrigins.find(lo => lo.region?.toLowerCase().includes(orig.region.slice(0, 2).toLowerCase()));
+      const factor = idx === 0 ? 0.45 : idx === 1 ? 0.25 : idx === 2 ? 0.15 : 0.10;
+      const pVal = prodMmt > 0 ? (prodMmt * factor).toFixed(1) + 'M MT' : orig.production;
+      const eVal = expMmt > 0 ? '수출 ' + (expMmt * factor).toFixed(1) + 'M MT' : orig.exports;
+      const sVal = stockMmt > 0 ? '기말재고 ' + (stockMmt * factor).toFixed(1) + 'M MT' : orig.endingStocks;
+
+      return {
+        ...orig,
+        production: pVal,
+        exports: eVal,
+        endingStocks: sVal,
+        riskAssessment: liveMatch?.riskAssessment || orig.riskAssessment,
+        status: liveMatch?.status || orig.status,
+        statusColor: liveMatch?.statusColor || orig.statusColor,
+        sourceName: 'USDA FAS PSD & Gemini Search Engine'
+      };
+    });
+  }, [commodity.id, commodity.originsLedger, usdaData, wasdeTelemetry, liveOrigins, isWheat, originRadarData]);
+
+  const [isExportingPdf, setIsExportingPdf] = useState<boolean>(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [crosshairState, setCrosshairState] = useState<{
+    active: boolean;
+    xPct: number;
+    yPct: number;
+    svgX: number;
+    svgY: number;
+    snappedX: number;
+    snappedY: number;
+    date: string;
+    price: number;
+    elevationPrice: number;
+  } | null>(null);
+
+  const [wheatCrosshairState, setWheatCrosshairState] = useState<{
+    active: boolean;
+    xPct: number;
+    svgX: number;
+    snappedX: number;
+    reportDate: string;
+    contractMonth: string;
+    srwMt: number;
+    hrwMt: number;
+    hrsMt: number;
+    srwBu: number;
+    hrwBu: number;
+    hrsBu: number;
+    ySrw: number;
+    yHrw: number;
+    yHrs: number;
+  } | null>(null);
+
+  const exchange = getExchangeInfo(commodity.id);
+
+  const latestHistoricalData = !isWheat && historicalData?.data && historicalData.data.length > 0
+    ? historicalData.data[historicalData.data.length - 1]
+    : null;
+
+  const effectiveBasePrice = useMemo(() => {
+    if (!isWheat && latestHistoricalData?.usdPerMT) {
+      if (currency === 'KRW') return Math.round(latestHistoricalData.usdPerMT * exchangeRate);
+      if (currency === 'EUR') return latestHistoricalData.usdPerMT / 1.08;
+      return latestHistoricalData.usdPerMT;
+    }
+    return commodity.price;
+  }, [isWheat, latestHistoricalData, currency, exchangeRate, commodity.price]);
+
+  // Universal Single-Commodity Historical Time-Series Chart Data from Yahoo Finance
+  const historicalChartData = useMemo(() => {
+    if (isWheat || !historicalData || !historicalData.data || historicalData.data.length === 0) {
+      return null;
+    }
+
+    const allPoints = historicalData.data;
+    const totalCount = allPoints.length;
+
+    // Filter by timeframe: 1M (22 trading days), 3M (65 trading days), 6M (130 trading days), 1Y (all)
+    let sliceCount = 65;
+    if (activeTimeframe === '1M') sliceCount = 22;
+    else if (activeTimeframe === '3M') sliceCount = 65;
+    else if (activeTimeframe === '6M') sliceCount = 130;
+    else sliceCount = totalCount;
+
+    const filtered = allPoints.slice(Math.max(0, totalCount - sliceCount));
+    if (filtered.length === 0) return null;
+
+    const N = filtered.length;
+    const convRate = currency === 'KRW' ? exchangeRate : currency === 'EUR' ? 1 / 1.08 : 1;
+
+    const pointsData = filtered.map((p, i) => {
+      const convPrice = p.usdPerMT * convRate;
+      const windowStart = Math.max(0, i - 4);
+      const windowPoints = filtered.slice(windowStart, i + 1);
+      const maPrice = (windowPoints.reduce((acc, curr) => acc + curr.usdPerMT, 0) / windowPoints.length) * convRate;
+      return {
+        date: p.date.replace(/-/g, '.'),
+        price: convPrice,
+        maPrice,
+        usdPerMT: p.usdPerMT,
+      };
+    });
+
+    const allPrices = pointsData.flatMap((p) => [p.price, p.maPrice]);
+    const low = Math.min(...allPrices);
+    const high = Math.max(...allPrices);
+    const avg = pointsData.reduce((sum, val) => sum + val.price, 0) / pointsData.length;
+
+    const width = 500;
+    const height = 150;
+    const padTop = 25;
+    const padBottom = 25;
+    const usableHeight = height - padTop - padBottom;
+
+    const initialMin = low * 0.95;
+    const initialMax = high * 1.08;
+    const initialRange = initialMax - initialMin || 1;
+
+    const tempChartPoints: ChartPoint[] = pointsData.map((pt, idx) => {
+      const x = N > 1 ? Math.round((idx / (N - 1)) * width) : 250;
+      const y = Math.round(height - padBottom - ((pt.price - initialMin) / initialRange) * usableHeight);
+      return {
+        date: pt.date,
+        price: pt.price,
+        usdPerMT: pt.usdPerMT,
+        x,
+        y,
+      };
+    });
+
+    // 1. Find max price in current dataset
+    const maxPricePoint = Math.max(...tempChartPoints.map(p => p.price), high);
+
+    // 2. Pad maxVal by 10% so the line has room at the top
+    const minVal = Math.min(...tempChartPoints.map(p => p.price)) * 0.95;
+    const maxVal = maxPricePoint * 1.10; 
+    const valRange = maxVal - minVal || 1;
+
+    const chartPoints: ChartPoint[] = pointsData.map((pt, idx) => {
+      const x = N > 1 ? Math.round((idx / (N - 1)) * width) : 250;
+      const y = Math.round(height - padBottom - ((pt.price - minVal) / valRange) * usableHeight);
+      return {
+        date: pt.date,
+        price: pt.price,
+        usdPerMT: pt.usdPerMT,
+        x,
+        y,
+      };
+    });
+
+    const maCoords = pointsData.map((pt, idx) => {
+      const x = N > 1 ? Math.round((idx / (N - 1)) * width) : 250;
+      const y = Math.round(height - padBottom - ((pt.maPrice - minVal) / valRange) * usableHeight);
+      return { x, y };
+    });
+
+    const buildSplinePath = (coords: { x: number; y: number }[]) => {
+      if (coords.length < 2) return '';
+      let path = `M ${coords[0].x},${coords[0].y}`;
+      for (let i = 0; i < coords.length - 1; i++) {
+        const curr = coords[i];
+        const next = coords[i + 1];
+        const cpX = Math.round((curr.x + next.x) / 2);
+        path += ` C ${cpX},${curr.y} ${cpX},${next.y} ${next.x},${next.y}`;
+      }
+      return path;
+    };
+
+    const linePath = buildSplinePath(chartPoints);
+    const areaPath = `${linePath} L ${width},150 L 0,150 Z`;
+    const maPath = buildSplinePath(maCoords);
+
+    // 3. Generate 5 nice Y-axis ticks between minVal and maxVal
+    const tickStep = (maxVal - minVal) / 4;
+    const ticks: ChartTick[] = [0, 1, 2, 3, 4].map(i => {
+      const value = minVal + tickStep * i;
+      const y = 150 - 25 - ((value - minVal) / (maxVal - minVal)) * (150 - 50);
+      return { value, y };
+    });
+
+    const axisLabels: [string, string, string, string] = [
+      pointsData[0].date,
+      pointsData[Math.floor(N * 0.33)].date,
+      pointsData[Math.floor(N * 0.66)].date,
+      pointsData[N - 1].date,
+    ];
+
+    return {
+      points: chartPoints,
+      linePath,
+      areaPath,
+      maPath,
+      minVal,
+      maxVal,
+      high,
+      low,
+      avg,
+      ticks,
+      axisLabels,
+    };
+  }, [isWheat, historicalData, activeTimeframe, currency, exchangeRate]);
+
+  const chartData = useMemo(() => {
+    if (!isWheat && historicalChartData) {
+      return historicalChartData;
+    }
+    return getTimeframeChartData(effectiveBasePrice, activeTimeframe, commodity.sparkline);
+  }, [isWheat, historicalChartData, effectiveBasePrice, activeTimeframe, commodity.sparkline]);
+
+  // U.S. Wheat Associates Historical Time-Series Chart Data (SRW, HRW, HRS)
+  const wheatChartData = useMemo(() => {
+    if (!isWheat || !usWheatHistory || !usWheatHistory.data || usWheatHistory.data.length === 0) {
+      return null;
+    }
+
+    const allPoints = usWheatHistory.data;
+    const totalCount = allPoints.length;
+
+    // Filter by timeframe: 1M (5 weeks), 3M (14 weeks), 6M (26 weeks), 1Y/ALL (all 29 weeks)
+    let sliceCount = 14;
+    if (activeTimeframe === '1M') sliceCount = 5;
+    else if (activeTimeframe === '3M') sliceCount = 14;
+    else if (activeTimeframe === '6M') sliceCount = 26;
+    else sliceCount = totalCount;
+
+    const filtered = allPoints.slice(Math.max(0, totalCount - sliceCount));
+    if (filtered.length === 0) return null;
+
+    // Wheat source is standardized to USD/MT regardless of the global currency selector.
+    const allPrices = filtered.flatMap((p) => [p.srwMt, p.hrwMt, p.hrsMt]);
+    const absoluteHigh = Math.max(...allPrices);
+    const absoluteLow = Math.min(...allPrices);
+    const paddingBuffer = (absoluteHigh - absoluteLow) * 0.05 || absoluteHigh * 0.05;
+    const minVal = absoluteLow - paddingBuffer;
+    const maxVal = absoluteHigh + paddingBuffer;
+    const range = maxVal - minVal || 1;
+
+    const usableHeight = 150 - 25 - 25; // top: 25, bottom: 25
+    const N = filtered.length;
+
+    const coordPoints = filtered.map((p, i) => {
+      const convSrwMt = p.srwMt;
+      const convHrwMt = p.hrwMt;
+      const convHrsMt = p.hrsMt;
+      // Preserve source bushel values internally for traceability/tooltips only.
+      const convSrwBu = p.srwBu;
+      const convHrwBu = p.hrwBu;
+      const convHrsBu = p.hrsBu;
+
+      const x = N > 1 ? Math.round((i / (N - 1)) * 500 * 10) / 10 : 250;
+      const ySrw = Math.round((150 - 25 - ((convSrwMt - minVal) / range) * usableHeight) * 10) / 10;
+      const yHrw = Math.round((150 - 25 - ((convHrwMt - minVal) / range) * usableHeight) * 10) / 10;
+      const yHrs = Math.round((150 - 25 - ((convHrsMt - minVal) / range) * usableHeight) * 10) / 10;
+      return {
+        ...p,
+        srwMt: convSrwMt,
+        hrwMt: convHrwMt,
+        hrsMt: convHrsMt,
+        srwBu: convSrwBu,
+        hrwBu: convHrwBu,
+        hrsBu: convHrsBu,
+        x,
+        ySrw,
+        yHrw,
+        yHrs
+      };
+    });
+
+    const buildSplinePath = (coords: { x: number; y: number }[]) => {
+      if (coords.length < 2) return '';
+      let path = `M ${coords[0].x},${coords[0].y}`;
+      for (let i = 0; i < coords.length - 1; i++) {
+        const curr = coords[i];
+        const next = coords[i + 1];
+        const cpX = Math.round((curr.x + next.x) / 2);
+        path += ` C ${cpX},${curr.y} ${cpX},${next.y} ${next.x},${next.y}`;
+      }
+      return path;
+    };
+
+    const srwLinePath = buildSplinePath(coordPoints.map((p) => ({ x: p.x, y: p.ySrw })));
+    const hrwLinePath = buildSplinePath(coordPoints.map((p) => ({ x: p.x, y: p.yHrw })));
+    const hrsLinePath = buildSplinePath(coordPoints.map((p) => ({ x: p.x, y: p.yHrs })));
+
+    const srwAreaPath = `${srwLinePath} L 500,150 L 0,150 Z`;
+
+    const tickCount = 4;
+    const ticks = Array.from({ length: tickCount }, (_, i) => {
+      const val = Math.round(minVal + ((maxVal - minVal) / (tickCount - 1)) * (tickCount - 1 - i));
+      const y = 25 + (usableHeight / (tickCount - 1)) * i;
+      return { value: val, y };
+    });
+
+    const axisLabels = [
+      filtered[0].reportDate,
+      filtered[Math.floor(N * 0.33)].reportDate,
+      filtered[Math.floor(N * 0.66)].reportDate,
+      filtered[N - 1].reportDate
+    ];
+
+    const high = Math.max(...allPrices);
+    const low = Math.min(...allPrices);
+    const avg = allPrices.reduce((a, b) => a + b, 0) / allPrices.length;
+
+    const latestPoint = coordPoints[coordPoints.length - 1];
+
+    return {
+      points: coordPoints,
+      srwLinePath,
+      hrwLinePath,
+      hrsLinePath,
+      srwAreaPath,
+      minVal,
+      maxVal,
+      high,
+      low,
+      avg,
+      ticks,
+      axisLabels,
+      latestPoint,
+      srwYPct: (latestPoint.ySrw / 150) * 100,
+      hrwYPct: (latestPoint.yHrw / 150) * 100,
+      hrsYPct: (latestPoint.yHrs / 150) * 100
+    };
+  }, [isWheat, usWheatHistory, activeTimeframe]);
+
+  // Calculate period change percentage whenever active time series data updates
+  const periodPctChange = useMemo(() => {
+    if (!isWheat && historicalData?.data && historicalData.data.length > 0) {
+      const firstPoint = historicalData.data[0]?.usdPerMT || 1;
+      const lastPoint = historicalData.data[historicalData.data.length - 1]?.usdPerMT || 1;
+      return firstPoint !== 0 ? ((lastPoint - firstPoint) / firstPoint) * 100 : 0;
+    }
+
+    if (isWheat && wheatChartData?.points && wheatChartData.points.length > 0) {
+      const activeData = wheatChartData.points as any[];
+      const startPrice = activeData[0]?.hrwMt ?? activeData[0]?.usdPerMT ?? 0;
+      const currentPrice = activeData[activeData.length - 1]?.hrwMt ?? activeData[activeData.length - 1]?.usdPerMT ?? 0;
+      return startPrice !== 0 ? ((currentPrice - startPrice) / startPrice) * 100 : 0;
+    }
+
+    if (chartData?.points && chartData.points.length > 0) {
+      const activeData = chartData.points as any[];
+      const startPrice = activeData[0]?.usdPerMT ?? activeData[0]?.price ?? 0;
+      const currentPrice = activeData[activeData.length - 1]?.usdPerMT ?? activeData[activeData.length - 1]?.price ?? 0;
+      return startPrice !== 0 ? ((currentPrice - startPrice) / startPrice) * 100 : 0;
+    }
+
+    return 0;
+  }, [isWheat, historicalData, wheatChartData, chartData]);
+
+  const livePoint = chartData.points && chartData.points.length > 0
+    ? chartData.points[chartData.points.length - 1]
+    : null;
+  const latestLivePrice = livePoint ? livePoint.price : effectiveBasePrice;
+  const liveY = livePoint ? livePoint.y : Math.round(150 - 25 - ((latestLivePrice - chartData.minVal) / (chartData.maxVal - chartData.minVal || 1)) * (150 - 15 - 25));
+  const liveYPct = (liveY / 150) * 100;
+
+  const range52WeekStats = useMemo(() => {
+    if (isWheat && usWheatHistory?.data?.length) {
+      const prices = usWheatHistory.data.map((d) => d.hrwMt).filter((v) => Number.isFinite(v));
+      if (prices.length > 0) {
+        const current = prices[prices.length - 1];
+        const high = Math.max(...prices);
+        const low = Math.min(...prices);
+        const pct = high > low ? Math.max(0, Math.min(100, Math.round(((current - low) / (high - low)) * 100))) : 50;
+        const zone = pct > 70 ? '고평가 구간' : pct < 30 ? '저평가 구간' : '안정 구간';
+        return { current, high, low, pct, zone };
+      }
+    }
+
+    if (!isWheat && historicalData?.data && historicalData.data.length > 0) {
+      const data = historicalData.data;
+      const convRate = currency === 'KRW' ? exchangeRate : currency === 'EUR' ? 1 / 1.08 : 1;
+      const rawHigh = Math.max(...data.map((d) => d.usdPerMT));
+      const rawLow = Math.min(...data.map((d) => d.usdPerMT));
+
+      const current = effectiveBasePrice;
+      const high = rawHigh * convRate;
+      const low = rawLow * convRate;
+      const pct = high > low ? Math.max(0, Math.min(100, Math.round(((current - low) / (high - low)) * 100))) : 50;
+      const zone = pct > 70 ? '고평가 구간' : pct < 30 ? '저평가 구간' : '안정 구간';
+
+      return {
+        current,
+        high,
+        low,
+        pct,
+        zone,
+      };
+    }
+
+    if (chartData?.points && chartData.points.length > 0) {
+      const current = chartData.points[chartData.points.length - 1].price;
+      const high = chartData.high;
+      const low = chartData.low;
+      const pct = high > low ? Math.max(0, Math.min(100, Math.round(((current - low) / (high - low)) * 100))) : 50;
+      const zone = pct > 70 ? '고평가 구간' : pct < 30 ? '저평가 구간' : '안정 구간';
+      return { current, high, low, pct, zone };
+    }
+
+    const current = effectiveBasePrice;
+    const low = current * 0.88;
+    const high = current * 1.22;
+    const pct = 42;
+    return { current, high, low, pct, zone: '안정 구간' };
+  }, [isWheat, usWheatHistory, historicalData, chartData, effectiveBasePrice, currency, exchangeRate]);
+
+  const handleChartMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const offsetX = Math.max(0, Math.min(rect.width, e.clientX - rect.left));
+    const offsetY = Math.max(0, Math.min(rect.height, e.clientY - rect.top));
+    const xRatio = offsetX / rect.width;
+    const yRatio = offsetY / rect.height;
+
+    const svgX = xRatio * 500;
+    const svgY = yRatio * 150;
+
+    // Dedicated handler for U.S. Wheat Associates 3-line chart
+    if (isWheat && wheatChartData && wheatChartData.points.length > 0) {
+      const pts = wheatChartData.points;
+      let closest = pts[0];
+      let minDiff = Infinity;
+      for (let i = 0; i < pts.length; i++) {
+        const diff = Math.abs(pts[i].x - svgX);
+        if (diff < minDiff) {
+          minDiff = diff;
+          closest = pts[i];
+        }
+      }
+      setWheatCrosshairState({
+        active: true,
+        xPct: (closest.x / 500) * 100,
+        svgX,
+        snappedX: closest.x,
+        reportDate: closest.reportDate,
+        contractMonth: closest.contractMonth,
+        srwMt: closest.srwMt,
+        hrwMt: closest.hrwMt,
+        hrsMt: closest.hrsMt,
+        srwBu: closest.srwBu,
+        hrwBu: closest.hrwBu,
+        hrsBu: closest.hrsBu,
+        ySrw: closest.ySrw,
+        yHrw: closest.yHrw,
+        yHrs: closest.yHrs
+      });
+      return;
+    }
+
+    const pts = chartData.points;
+    if (!pts || pts.length === 0) return;
+
+    let closest = pts[0];
+    let minDiff = Infinity;
+    for (let i = 0; i < pts.length; i++) {
+      const diff = Math.abs(pts[i].x - svgX);
+      if (diff < minDiff) {
+        minDiff = diff;
+        closest = pts[i];
+      }
+    }
+
+    const usableHeight = 150 - 15 - 25;
+    const elevationPrice = Math.max(
+      chartData.minVal,
+      Math.min(
+        chartData.maxVal,
+        chartData.maxVal - ((svgY - 15) / usableHeight) * (chartData.maxVal - chartData.minVal)
+      )
+    );
+
+    setCrosshairState({
+      active: true,
+      xPct: (closest.x / 500) * 100,
+      yPct: yRatio * 100,
+      svgX,
+      svgY,
+      snappedX: closest.x,
+      snappedY: closest.y,
+      date: closest.date,
+      price: closest.price,
+      elevationPrice,
+    });
+  };
+
+  const handleChartMouseLeave = () => {
+    setCrosshairState(null);
+    setWheatCrosshairState(null);
+  };
+
+  const handleExportPdf = async () => {
+    const targetElement =
+      containerRef.current ||
+      (document.querySelector('.CommodityDetail') as HTMLElement | null);
+
+    if (!targetElement) return;
+
+    try {
+      setIsExportingPdf(true);
+      await new Promise((resolve) => setTimeout(resolve, 150));
+      const { default: html2canvas } = await import('html2canvas-pro');
+      const { jsPDF } = await import('jspdf');
+
+      const canvas = await html2canvas(targetElement, {
+        scale: 2,
+        useCORS: true,
+        logging: false,
+        backgroundColor: '#ffffff',
+        windowWidth: 1200,
+        onclone: (clonedDoc) => {
+          sanitizeOklchColorsForCanvas(clonedDoc);
+          const clonedEl = clonedDoc.querySelector('.CommodityDetail') as HTMLElement;
+          if (clonedEl) {
+            clonedEl.style.width = '1100px';
+            clonedEl.style.minWidth = '1100px';
+            clonedEl.style.maxWidth = '1100px';
+            clonedEl.style.margin = '0 auto';
+            clonedEl.style.padding = '24px';
+            clonedEl.style.wordBreak = 'keep-all';
+            clonedEl.style.lineHeight = '1.5';
+            clonedEl.classList.add('pdf-export-mode');
+          }
+          const hideEls = clonedDoc.querySelectorAll('.pdf-hide');
+          hideEls.forEach((el: any) => {
+            el.style.display = 'none';
+          });
+          const miEl = clonedDoc.querySelector('.market-intelligence-section') as HTMLElement;
+          if (miEl) {
+            miEl.style.marginTop = '2rem';
+            miEl.style.paddingTop = '1rem';
+          }
+        },
+      });
+
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF({
+        orientation: canvas.width > canvas.height ? 'landscape' : 'portrait',
+        unit: 'mm',
+        format: 'a4',
+      });
+
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      const imgWidth = pageWidth;
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+
+      if (imgHeight <= pageHeight) {
+        pdf.addImage(imgData, 'PNG', 0, 0, imgWidth, imgHeight, undefined, 'FAST');
+      } else {
+        let heightLeft = imgHeight;
+        let position = 0;
+
+        pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight, undefined, 'FAST');
+        heightLeft -= pageHeight;
+
+        while (heightLeft > 0) {
+          position = heightLeft - imgHeight;
+          pdf.addPage();
+          pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight, undefined, 'FAST');
+          heightLeft -= pageHeight;
+        }
+      }
+
+      const filename = getPdfFilename(commodity.nameEn);
+      pdf.save(filename);
+    } catch (error) {
+      console.error('Failed to generate PDF:', error);
+    } finally {
+      setIsExportingPdf(false);
+    }
+  };
+
+  const formatChartPrice = (val: number) => {
+    if (isWheat) {
+      return `$${val.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} / MT`;
+    }
+    if (commodity.id === 'palm-oil') {
+      return `${val.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${commodity.unit}`;
+    }
+    const formatted = val.toLocaleString('en-US', {
+      minimumFractionDigits: currency === 'KRW' ? 0 : 2,
+      maximumFractionDigits: currency === 'KRW' ? 0 : 2,
+    });
+    return `${currencySymbol}${formatted} / MT`;
+  };
+
+  return (
+    <div ref={containerRef} className="CommodityDetail flex flex-col w-full pb-10 space-y-4">
+      {/* 1. Breadcrumb Bar */}
+      <div className="flex items-center justify-between text-xs text-[#6b7280] print:hidden pdf-hide">
+        <div className="flex items-center gap-1.5 flex-wrap print:hidden pdf-hide">
+          <button
+            type="button"
+            onClick={onNavigateBack}
+            className="hover:text-[#DF0029] flex items-center gap-1 font-semibold transition-colors"
+          >
+            <span className="material-symbols-outlined text-[15px]">arrow_back</span>
+            <span>종합 터미널 (Overview)</span>
+          </button>
+          <span className="text-[#d1d5db]">/</span>
+          <span>원자재 모니터링</span>
+          <span className="text-[#d1d5db]">/</span>
+          <span className="font-bold text-[#111827] whitespace-nowrap">
+            {commodity.nameKo} ({commodity.nameEn})
+          </span>
+        </div>
+
+        {!isExportingPdf && (
+          <div className="flex items-center gap-2 print:hidden pdf-hide export-btn-wrapper">
+            <button
+              type="button"
+              onClick={handleExportPdf}
+              className="px-2.5 py-1 bg-white hover:bg-[#f9fafb] border border-[#e5e7eb] rounded text-[#374151] font-semibold text-xs flex items-center gap-1 shadow-xs transition-colors cursor-pointer export-report-btn"
+            >
+              <span className="material-symbols-outlined text-[15px] text-[#DF0029]">picture_as_pdf</span>
+              품목 리포트 출력
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* 2. Top Executive Summary Card – shared SCM Procurement Analysis UI */}
+      <section className="w-full max-w-full p-4 sm:p-5 bg-white border border-slate-200 rounded-xl shadow-xs pdf-section-card break-inside-avoid print:break-inside-avoid overflow-hidden">
+        <div className="w-full max-w-full flex flex-col gap-3 min-w-0">
+          {/* Row 1: title + four compact KPI cards. Never force horizontal scrolling. */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-[minmax(240px,1.35fr)_minmax(150px,.9fr)_minmax(135px,.72fr)_minmax(185px,1.08fr)_minmax(135px,.75fr)] gap-2.5 items-stretch min-w-0">
+            <div className="sm:col-span-2 xl:col-span-1 min-w-0 flex flex-col justify-center pr-1">
+              <div className="flex items-center gap-1.5 mb-1.5 flex-wrap">
+                <span className="px-1.5 py-0.5 bg-[#DF0029] text-white text-[10px] font-bold rounded tracking-wide shrink-0">
+                  {commodity.category.toUpperCase() === 'GRAIN' ? 'GRAINS' : commodity.category.toUpperCase()}
+                </span>
+                <span className="px-1.5 py-0.5 bg-slate-100 text-slate-600 text-[10px] font-mono font-medium rounded border border-slate-200 shrink-0">
+                  {commodity.ticker}
+                </span>
+              </div>
+              <h1 className="text-[15px] sm:text-base lg:text-[17px] font-bold text-slate-900 tracking-tight leading-snug break-keep whitespace-normal">
+                {commodity.nameKo} ({commodity.nameEn}) SCM 조달 분석
+              </h1>
+              <p className="text-xs text-slate-500 break-keep whitespace-normal leading-relaxed mt-0.5">
+                {commodity.description}
+              </p>
+            </div>
+
+            {/* Benchmark Price */}
+            <div id="scm-benchmark-price-card" className="bg-slate-50/90 border border-slate-200/80 rounded-lg p-3 flex flex-col justify-center min-w-0">
+              <span className="text-[10px] sm:text-[11px] font-semibold text-slate-400 block mb-0.5">
+                {isWheat ? '기준 시세 (HRW)' : '기준 시세'}
+              </span>
+              <div className="flex items-baseline gap-1 min-w-0">
+                <span className="text-sm sm:text-base font-bold font-mono text-slate-900 whitespace-nowrap">
+                  {isWheat && hrwData
+                    ? hrwData.latestPriceMt.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                    : COMMODITY_CONFIGS[commodity.id]
+                    ? (currency === 'KRW'
+                        ? getCalculatedMetrics(commodity.id).baseKRW.toLocaleString('en-US')
+                        : COMMODITY_CONFIGS[commodity.id].benchmarkQuote.toLocaleString('en-US'))
+                    : (currency === 'KRW' && commodity.id !== 'palm-oil'
+                        ? Math.round(effectiveBasePrice).toLocaleString('en-US')
+                        : effectiveBasePrice.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }))}
+                </span>
+                <span className="text-[10px] font-normal text-slate-500 font-mono whitespace-nowrap">
+                  {isWheat
+                    ? 'USD / MT'
+                    : COMMODITY_CONFIGS[commodity.id]
+                    ? (currency === 'KRW' ? 'KRW / MT' : `${COMMODITY_CONFIGS[commodity.id].currency} / MT`)
+                    : commodity.id !== 'palm-oil'
+                    ? (currency === 'USD' ? 'USD / MT' : currency === 'EUR' ? 'EUR / MT' : 'KRW / MT')
+                    : commodity.unit}
+                </span>
+              </div>
+              {isWheat && hrwData && (
+                <p className="text-[9px] sm:text-[10px] text-slate-500 font-mono mt-1 leading-tight break-keep whitespace-normal">
+                  HRW {hrwData.contractMonth} · {hrwData.reportDate}
+                </p>
+              )}
+            </div>
+
+            {/* Weekly Change */}
+            <div id="scm-weekly-change-card" className="bg-slate-50/90 border border-slate-200/80 rounded-lg p-3 flex flex-col justify-center min-w-0">
+              <span className="text-[10px] sm:text-[11px] font-semibold text-slate-400 block mb-0.5">주간 변동 (WoW)</span>
+              <div className={`flex items-center gap-0.5 font-mono text-sm font-bold whitespace-nowrap ${
+                isWheat && hrwData
+                  ? (hrwData.direction === 'up' ? 'text-[#059669]' : hrwData.direction === 'down' ? 'text-[#DF0029]' : 'text-slate-500')
+                  : commodity.changeWoW >= 0 ? 'text-[#059669]' : 'text-[#DF0029]'
+              }`}>
+                <span className="material-symbols-outlined text-[16px]">
+                  {isWheat && hrwData
+                    ? (hrwData.direction === 'up' ? 'arrow_upward' : hrwData.direction === 'down' ? 'arrow_downward' : 'remove')
+                    : commodity.changeWoW >= 0 ? 'arrow_upward' : 'arrow_downward'}
+                </span>
+                <span>
+                  {isWheat && hrwData
+                    ? (hrwData.wowPct == null ? '-' : `${hrwData.wowPct > 0 ? '+' : ''}${hrwData.wowPct.toFixed(2)}%`)
+                    : `${commodity.changeWoW >= 0 ? '+' : ''}${commodity.changeWoW}%`}
+                </span>
+              </div>
+              {isWheat && hrwData?.absoluteChangeMt != null && (
+                <p className="text-[9px] sm:text-[10px] text-slate-500 font-mono mt-1 whitespace-normal">
+                  {hrwData.absoluteChangeMt > 0 ? '+' : ''}{hrwData.absoluteChangeMt.toFixed(2)} USD/MT
+                </p>
+              )}
+            </div>
+
+            {/* Estimated Landed Cost */}
+            <div id="scm-landed-cost-card" className="bg-slate-50/90 border border-slate-200/80 rounded-lg p-3 flex flex-col justify-center min-w-0">
+              <span className="text-[10px] sm:text-[11px] font-semibold text-slate-400 block mb-0.5">
+                {isWheat ? '추정 국내 도착가' : currency === 'USD' ? '추정 CIF 도착가 (USD)' : currency === 'EUR' ? '추정 CIF 도착가 (EUR)' : '추정 국내 도착가'}
+              </span>
+              <div className="font-mono text-sm sm:text-base font-bold text-slate-900 whitespace-nowrap">
+                {isWheat ? (
+                  wheatLandedCost?.isAvailable && wheatLandedCost.estimatedLandedCostUsdMt != null
+                    ? <>{wheatLandedCost.estimatedLandedCostUsdMt.toFixed(2)} <span className="text-[10px] font-medium text-slate-500">USD/MT</span></>
+                    : <span className="text-xs sm:text-sm font-sans font-medium text-slate-500">연동 대기</span>
+                ) : formatLandedCost(commodity, currency)}
+              </div>
+              {isWheat && (
+                <p className="text-[9px] sm:text-[10px] text-slate-500 font-sans mt-1 leading-tight break-keep whitespace-normal">
+                  {wheatLandedCost?.isAvailable && wheatLandedCost.estimatedLandedCostUsdMt != null
+                    ? wheatLandedCost.compactFormulaText
+                    : wheatLandedCost?.statusReason || 'FOB/한국향 운임/항만비 확인 대기'}
+                </p>
+              )}
+            </div>
+
+            {/* Desk Recommendation */}
+            <div id="scm-desk-recommendation-card" className="bg-slate-50/90 border border-slate-200/80 rounded-lg p-3 flex flex-col justify-center min-w-0">
+              <span className="text-[10px] sm:text-[11px] font-semibold text-slate-400 block mb-1">데스크 권고</span>
+              <span className={`inline-flex self-start items-center text-xs px-2.5 py-1 rounded-md transition-colors break-keep whitespace-normal ${getRecommendationColor(activeDeskRecommendation)}`}>
+                {activeDeskRecommendation}
+              </span>
+            </div>
+          </div>
+
+          {/* Row 2: common Procurement Risk strip across full width. */}
+          <div id="scm-procurement-risk-card" className="w-full bg-slate-50/80 border border-slate-200/70 rounded-lg px-3 py-2.5 flex flex-col sm:flex-row sm:items-start gap-2 sm:gap-3 min-w-0">
+            <div className="flex items-center gap-1.5 shrink-0 pt-0.5">
+              <span className="text-[11px] font-semibold text-slate-600 whitespace-nowrap">조달 리스크</span>
+              <span className={`text-[10px] sm:text-[11px] font-bold px-1.5 py-0.5 rounded border leading-none whitespace-nowrap ${
+                procurementRiskLevel === '경계'
+                  ? 'text-red-700 bg-red-50 border-red-200'
+                  : procurementRiskLevel === '주의'
+                  ? 'text-amber-700 bg-amber-50 border-amber-200'
+                  : 'text-emerald-700 bg-emerald-50 border-emerald-200'
+              }`}>
+                {procurementRiskLevel}
+              </span>
+            </div>
+            <p className="text-xs text-slate-700 font-sans leading-snug break-keep whitespace-normal min-w-0 flex-1 line-clamp-2">
+              {procurementRiskSummary}
+            </p>
+            {isWheat && isAmisFailed && (
+              <span className="text-[9px] text-[#DF0029] shrink-0">AMIS 최신 갱신 실패 · 이전 검증 데이터 유지</span>
+            )}
+          </div>
+        </div>
+      </section>
+
+      {/* 3. Interactive Historical Trend & Technical Chart (Full Width 100%) */}
+      <section className="w-full bg-white p-5 rounded-lg shadow-sm border border-[#e5e7eb] space-y-4 pdf-section-card break-inside-avoid print:break-inside-avoid print:mt-6">
+        <div className="flex items-center justify-between w-full mb-4">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="material-symbols-outlined text-[18px] text-[#111827]">show_chart</span>
+            <h3 className="text-base font-bold text-slate-900 flex items-center gap-1.5">
+              {isWheat ? '가격 추이 분석' : '가격 추이 및 기술적 지표'} <span className="text-sm font-bold text-slate-900 ml-1">(Price Trend Analysis)</span>
+            </h3>
+
+            <div className="flex items-center gap-2 flex-wrap text-xs text-gray-400 font-sans ml-1">
+              <a 
+                href={isWheat ? (usWheatHistory?.sourceUrl || EXTERNAL_CHART_URLS['wheat'] || "https://uswheat.org/market-information/price-report/") : exchange.url} 
+                target="_blank" 
+                rel="noopener noreferrer" 
+                className="hover:underline flex items-center gap-0.5 text-gray-400 hover:text-[#DF0029] transition-colors font-normal font-sans"
+              >
+                출처: {isWheat ? 'U.S. Wheat Associates' : exchange.name} ↗
+              </a>
+              {isWheat && (
+                <>
+                  <span>|</span>
+                  <span className="font-sans font-normal">Report Date: <span className="font-normal text-gray-500">{usWheatHistory?.reportDate || 'September 18, 2026'}</span></span>
+                  {isUsWheatFailed && (
+                    <span className="text-[10px] font-semibold text-[#DF0029] bg-red-50 px-1.5 py-0.5 rounded border border-red-200">
+                      업데이트 실패 (이전 데이터 유지)
+                    </span>
+                  )}
+                </>
+              )}
+            </div>
+          </div>
+
+          {/* Timeframe Buttons */}
+          <div className="flex items-center gap-1 bg-[#f3f4f6] p-0.5 rounded border border-[#e5e7eb] shrink-0 pdf-hide">
+            {(['1M', '3M', '6M', '1Y'] as const).map((tf) => {
+              const isActive = activeTimeframe === tf;
+
+              // Calculate actual performance using the first and last data points of live history
+              let actualPercentChange = 0;
+              if (!isWheat && historicalData?.data && historicalData.data.length > 0) {
+                const firstPoint = historicalData.data[0]?.usdPerMT || 1;
+                const lastPoint = historicalData.data[historicalData.data.length - 1]?.usdPerMT || 1;
+                actualPercentChange = ((lastPoint - firstPoint) / firstPoint) * 100;
+              } else if (isWheat && wheatChartData?.points && wheatChartData.points.length > 0) {
+                const activeData = wheatChartData.points as any[];
+                const firstPoint = activeData[0]?.hrwMt ?? activeData[0]?.usdPerMT ?? 1;
+                const lastPoint = activeData[activeData.length - 1]?.hrwMt ?? activeData[activeData.length - 1]?.usdPerMT ?? 1;
+                actualPercentChange = ((lastPoint - firstPoint) / firstPoint) * 100;
+              } else if (chartData?.points && chartData.points.length > 0) {
+                const activeData = chartData.points as any[];
+                const firstPoint = activeData[0]?.usdPerMT ?? activeData[0]?.price ?? 1;
+                const lastPoint = activeData[activeData.length - 1]?.usdPerMT ?? activeData[activeData.length - 1]?.price ?? 1;
+                actualPercentChange = ((lastPoint - firstPoint) / firstPoint) * 100;
+              } else {
+                actualPercentChange = periodPctChange;
+              }
+
+              const isPositive = actualPercentChange >= 0;
+              const formattedPct = `${isPositive ? '+' : ''}${actualPercentChange.toFixed(2)}%`;
+
+              return (
+                <div key={tf} className="relative flex flex-col items-center">
+                  <button
+                    type="button"
+                    onClick={() => setActiveTimeframe(tf)}
+                    className={`px-2.5 py-1 text-xs font-bold rounded transition-colors ${
+                      isActive
+                        ? 'bg-white text-[#DF0029] shadow-xs'
+                        : 'text-[#6b7280] hover:text-[#111827]'
+                    }`}
+                  >
+                    {tf}
+                  </button>
+
+                  {isActive && (
+                    <div className="absolute top-full mt-1.5 z-30 flex flex-col items-center pointer-events-none">
+                      {/* Upward pointing CSS arrow tip */}
+                      <div
+                        className={`w-0 h-0 border-x-4 border-x-transparent border-b-4 ${
+                          isPositive ? 'border-b-[#DF0029]' : 'border-b-[#059669]'
+                        }`}
+                      />
+                      {/* Floating tooltip/badge */}
+                      <span
+                        className={`px-1.5 py-0.5 text-[10px] leading-tight font-mono font-bold text-white rounded shadow-md whitespace-nowrap ${
+                          isPositive ? 'bg-[#DF0029]' : 'bg-[#059669]'
+                        }`}
+                      >
+                        {formattedPct}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Metric Area: SRW, HRW, HRS Cards with Latest Published Price, WoW, MoM, Contract Month */}
+        {isWheat && usWheatHistory?.metrics && (
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            {/* SRW Card */}
+            <div className="bg-[#fafbfc] border border-[#e5e7eb] rounded-lg p-3.5 space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1.5">
+                  <span className="w-2.5 h-2.5 rounded-full bg-[#DF0029] shrink-0"></span>
+                  <span className="text-xs font-bold text-slate-900 font-mono">CBOT SRW</span>
+                  <span className="text-[11px] text-slate-500">연질적색소맥</span>
+                </div>
+                <span className="px-2 py-0.5 bg-slate-100 text-slate-600 rounded text-[11px] font-normal tracking-tight">
+                  {formatContractMonth(usWheatHistory.metrics.srw.contractMonth)}
+                </span>
+              </div>
+
+              <div className="flex items-baseline justify-between pt-0.5">
+                <div>
+                  <div className="text-lg sm:text-xl font-bold font-mono text-slate-900">
+                    ${formatWheatUsd(usWheatHistory.metrics.srw.latestPriceMt)}
+                    <span className="text-xs font-semibold text-slate-500 ml-1">USD/MT</span>
+                  </div>
+                </div>
+
+                <div className="text-right space-y-1">
+                  <div className="flex items-center justify-end gap-1">
+                    <span className="text-[10px] text-slate-400">WoW:</span>
+                    <span className={`text-xs font-mono font-bold ${
+                      usWheatHistory.metrics.srw.wowChangeMt >= 0 ? 'text-[#059669]' : 'text-[#DF0029]'
+                    }`}>
+                      {usWheatHistory.metrics.srw.wowChangeMt >= 0 ? '+' : ''}{usWheatHistory.metrics.srw.wowChangePct.toFixed(2)}%
+                    </span>
+                    <span className="text-[10px] font-mono text-slate-400">
+                      ({usWheatHistory.metrics.srw.wowChangeMt >= 0 ? '+' : '-'}${formatWheatUsd(Math.abs(usWheatHistory.metrics.srw.wowChangeMt))})
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-end gap-1">
+                    <span className="text-[10px] text-slate-400">MoM:</span>
+                    <span className={`text-xs font-mono font-bold ${
+                      usWheatHistory.metrics.srw.momChangeMt >= 0 ? 'text-[#059669]' : 'text-[#DF0029]'
+                    }`}>
+                      {usWheatHistory.metrics.srw.momChangeMt >= 0 ? '+' : ''}{usWheatHistory.metrics.srw.momChangePct.toFixed(2)}%
+                    </span>
+                    <span className="text-[10px] font-mono text-slate-400">
+                      ({usWheatHistory.metrics.srw.momChangeMt >= 0 ? '+' : '-'}${formatWheatUsd(Math.abs(usWheatHistory.metrics.srw.momChangeMt))})
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* HRW Card */}
+            <div className="bg-[#fafbfc] border border-[#e5e7eb] rounded-lg p-3.5 space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1.5">
+                  <span className="w-2.5 h-2.5 rounded-full bg-[#D97706] shrink-0"></span>
+                  <span className="text-xs font-bold text-slate-900 font-mono">KCBT HRW</span>
+                  <span className="text-[11px] text-slate-500">경질적색소맥</span>
+                </div>
+                <span className="px-2 py-0.5 bg-slate-100 text-slate-600 rounded text-[11px] font-normal tracking-tight">
+                  {formatContractMonth(usWheatHistory.metrics.hrw.contractMonth)}
+                </span>
+              </div>
+
+              <div className="flex items-baseline justify-between pt-0.5">
+                <div>
+                  <div className="text-lg sm:text-xl font-bold font-mono text-slate-900">
+                    ${formatWheatUsd(usWheatHistory.metrics.hrw.latestPriceMt)}
+                    <span className="text-xs font-semibold text-slate-500 ml-1">USD/MT</span>
+                  </div>
+                </div>
+
+                <div className="text-right space-y-1">
+                  <div className="flex items-center justify-end gap-1">
+                    <span className="text-[10px] text-slate-400">WoW:</span>
+                    <span className={`text-xs font-mono font-bold ${
+                      usWheatHistory.metrics.hrw.wowChangeMt >= 0 ? 'text-[#059669]' : 'text-[#DF0029]'
+                    }`}>
+                      {usWheatHistory.metrics.hrw.wowChangeMt >= 0 ? '+' : ''}{usWheatHistory.metrics.hrw.wowChangePct.toFixed(2)}%
+                    </span>
+                    <span className="text-[10px] font-mono text-slate-400">
+                      ({usWheatHistory.metrics.hrw.wowChangeMt >= 0 ? '+' : '-'}${formatWheatUsd(Math.abs(usWheatHistory.metrics.hrw.wowChangeMt))})
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-end gap-1">
+                    <span className="text-[10px] text-slate-400">MoM:</span>
+                    <span className={`text-xs font-mono font-bold ${
+                      usWheatHistory.metrics.hrw.momChangeMt >= 0 ? 'text-[#059669]' : 'text-[#DF0029]'
+                    }`}>
+                      {usWheatHistory.metrics.hrw.momChangeMt >= 0 ? '+' : ''}{usWheatHistory.metrics.hrw.momChangePct.toFixed(2)}%
+                    </span>
+                    <span className="text-[10px] font-mono text-slate-400">
+                      ({usWheatHistory.metrics.hrw.momChangeMt >= 0 ? '+' : '-'}${formatWheatUsd(Math.abs(usWheatHistory.metrics.hrw.momChangeMt))})
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* HRS Card */}
+            <div className="bg-[#fafbfc] border border-[#e5e7eb] rounded-lg p-3.5 space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1.5">
+                  <span className="w-2.5 h-2.5 rounded-full bg-[#2563EB] shrink-0"></span>
+                  <span className="text-xs font-bold text-slate-900 font-mono">MIAX HRS</span>
+                  <span className="text-[11px] text-slate-500">경질봄소맥</span>
+                </div>
+                <span className="px-2 py-0.5 bg-slate-100 text-slate-600 rounded text-[11px] font-normal tracking-tight">
+                  {formatContractMonth(usWheatHistory.metrics.hrs.contractMonth)}
+                </span>
+              </div>
+
+              <div className="flex items-baseline justify-between pt-0.5">
+                <div>
+                  <div className="text-lg sm:text-xl font-bold font-mono text-slate-900">
+                    ${formatWheatUsd(usWheatHistory.metrics.hrs.latestPriceMt)}
+                    <span className="text-xs font-semibold text-slate-500 ml-1">USD/MT</span>
+                  </div>
+                </div>
+
+                <div className="text-right space-y-1">
+                  <div className="flex items-center justify-end gap-1">
+                    <span className="text-[10px] text-slate-400">WoW:</span>
+                    <span className={`text-xs font-mono font-bold ${
+                      usWheatHistory.metrics.hrs.wowChangeMt >= 0 ? 'text-[#059669]' : 'text-[#DF0029]'
+                    }`}>
+                      {usWheatHistory.metrics.hrs.wowChangeMt >= 0 ? '+' : ''}{usWheatHistory.metrics.hrs.wowChangePct.toFixed(2)}%
+                    </span>
+                    <span className="text-[10px] font-mono text-slate-400">
+                      ({usWheatHistory.metrics.hrs.wowChangeMt >= 0 ? '+' : '-'}${formatWheatUsd(Math.abs(usWheatHistory.metrics.hrs.wowChangeMt))})
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-end gap-1">
+                    <span className="text-[10px] text-slate-400">MoM:</span>
+                    <span className={`text-xs font-mono font-bold ${
+                      usWheatHistory.metrics.hrs.momChangeMt >= 0 ? 'text-[#059669]' : 'text-[#DF0029]'
+                    }`}>
+                      {usWheatHistory.metrics.hrs.momChangeMt >= 0 ? '+' : ''}{usWheatHistory.metrics.hrs.momChangePct.toFixed(2)}%
+                    </span>
+                    <span className="text-[10px] font-mono text-slate-400">
+                      ({usWheatHistory.metrics.hrs.momChangeMt >= 0 ? '+' : '-'}${formatWheatUsd(Math.abs(usWheatHistory.metrics.hrs.momChangeMt))})
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* SVG Price Chart Canvas */}
+        {isWheat && wheatChartData ? (
+          <div className="h-68 sm:h-76 w-full bg-[#fafbfc] border border-[#f3f4f6] rounded-lg p-4 flex flex-col justify-between relative overflow-hidden select-none">
+            {/* Top Legend and Range Info */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between text-xs text-[#6b7280] font-mono gap-3 relative z-10 bg-[#fafbfc] w-full">
+              <div className="flex items-center gap-3 shrink-0">
+                <span className="flex items-center gap-1 font-semibold text-slate-700">
+                  <span className="w-2.5 h-2.5 rounded-full bg-[#DF0029]"></span> SRW (연질적색)
+                </span>
+                <span className="flex items-center gap-1 font-semibold text-slate-700">
+                  <span className="w-2.5 h-2.5 rounded-full bg-[#D97706]"></span> HRW (경질적색)
+                </span>
+                <span className="flex items-center gap-1 font-semibold text-slate-700">
+                  <span className="w-2.5 h-2.5 rounded-full bg-[#2563EB]"></span> HRS (경질봄)
+                </span>
+              </div>
+              <div className="grid grid-cols-3 w-full sm:max-w-md items-center">
+                <span className="text-left">최저: {currencySymbol}{formatConvertedPrice(wheatChartData.low)}</span>
+                <span className="text-center">평균: {currencySymbol}{formatConvertedPrice(wheatChartData.avg)}</span>
+                <span className="text-right">최고: {currencySymbol}{formatConvertedPrice(wheatChartData.high)}</span>
+              </div>
+            </div>
+
+            <div
+              className="relative h-48 sm:h-52 w-full flex items-center justify-center my-2 cursor-crosshair group"
+              onMouseMove={handleChartMouseMove}
+              onMouseLeave={handleChartMouseLeave}
+            >
+              <svg className="w-full h-full overflow-visible" fill="none" preserveAspectRatio="none" viewBox="0 0 500 150">
+                <defs>
+                  <linearGradient id="grad-wheat-srw" x1="0%" y1="0%" x2="0%" y2="100%">
+                    <stop offset="0%" stopColor="#DF0029" stopOpacity="0.15" />
+                    <stop offset="100%" stopColor="#DF0029" stopOpacity="0.0" />
+                  </linearGradient>
+                </defs>
+
+                {/* Horizontal clean gridlines */}
+                {wheatChartData.ticks.map((tick, idx) => (
+                  <line
+                    key={`wheat-grid-${idx}`}
+                    x1={0}
+                    y1={tick.y}
+                    x2={500}
+                    y2={tick.y}
+                    stroke="#F1F5F9"
+                    strokeWidth={1}
+                  />
+                ))}
+
+                {/* Subtle Area Fill under SRW */}
+                <path
+                  d={wheatChartData.srwAreaPath}
+                  fill="url(#grad-wheat-srw)"
+                />
+
+                {/* 1. SRW Line (Soft Red Winter - CBOT) */}
+                <path
+                  d={wheatChartData.srwLinePath}
+                  stroke="#DF0029"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                />
+
+                {/* 2. HRW Line (Hard Red Winter - KCBT) */}
+                <path
+                  d={wheatChartData.hrwLinePath}
+                  stroke="#D97706"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                />
+
+                {/* 3. HRS Line (Hard Red Spring - MIAX) */}
+                <path
+                  d={wheatChartData.hrsLinePath}
+                  stroke="#2563EB"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                />
+
+                {/* Hover Snap Indicator */}
+                {wheatCrosshairState?.active && (
+                  <g>
+                    {/* Vertical Guide Line */}
+                    <line
+                      x1={wheatCrosshairState.snappedX}
+                      y1={0}
+                      x2={wheatCrosshairState.snappedX}
+                      y2={150}
+                      stroke="#94a3b8"
+                      strokeWidth="1"
+                      strokeDasharray="3 3"
+                    />
+
+                    {/* SRW Dot */}
+                    <circle
+                      cx={wheatCrosshairState.snappedX}
+                      cy={wheatCrosshairState.ySrw}
+                      r="4.5"
+                      fill="#DF0029"
+                      stroke="#ffffff"
+                      strokeWidth="2"
+                    />
+                    {/* HRW Dot */}
+                    <circle
+                      cx={wheatCrosshairState.snappedX}
+                      cy={wheatCrosshairState.yHrw}
+                      r="4.5"
+                      fill="#D97706"
+                      stroke="#ffffff"
+                      strokeWidth="2"
+                    />
+                    {/* HRS Dot */}
+                    <circle
+                      cx={wheatCrosshairState.snappedX}
+                      cy={wheatCrosshairState.yHrs}
+                      r="4.5"
+                      fill="#2563EB"
+                      stroke="#ffffff"
+                      strokeWidth="2"
+                    />
+                  </g>
+                )}
+              </svg>
+
+              {/* Stacked Right Y-Axis Numeric Tick Labels */}
+              <div className="absolute right-1 top-0 bottom-0 pointer-events-none z-0">
+                {wheatChartData.ticks.map((tick, idx) => (
+                  <span
+                    key={`wheat-tick-label-${idx}`}
+                    className="absolute right-0 text-[10px] text-slate-400 font-mono transform -translate-y-1/2 bg-[#fafbfc] px-1 rounded select-none z-0"
+                    style={{ top: `${(tick.y / 150) * 100}%` }}
+                  >
+                    {currencySymbol}{formatConvertedPrice(tick.value)}
+                  </span>
+                ))}
+              </div>
+
+              {/* Permanent Fixed Live Price Badges on Far-Right Y-Axis */}
+              <div
+                className="absolute right-0 pointer-events-none transform -translate-y-1/2 z-10"
+                style={{ top: `${wheatChartData.srwYPct}%` }}
+              >
+                <span className="bg-[#DF0029] text-white px-2 py-0.5 rounded text-[11px] font-mono font-bold shadow-xs whitespace-nowrap block">
+                  SRW ${formatWheatUsd(wheatChartData.latestPoint.srwMt)}
+                </span>
+              </div>
+              <div
+                className="absolute right-0 pointer-events-none transform -translate-y-1/2 z-10"
+                style={{ top: `${wheatChartData.hrwYPct}%` }}
+              >
+                <span className="bg-[#D97706] text-white px-2 py-0.5 rounded text-[11px] font-mono font-bold shadow-xs whitespace-nowrap block">
+                  HRW ${formatWheatUsd(wheatChartData.latestPoint.hrwMt)}
+                </span>
+              </div>
+              <div
+                className="absolute right-0 pointer-events-none transform -translate-y-1/2 z-10"
+                style={{ top: `${wheatChartData.hrsYPct}%` }}
+              >
+                <span className="bg-[#2563EB] text-white px-2 py-0.5 rounded text-[11px] font-mono font-bold shadow-xs whitespace-nowrap block">
+                  HRS ${formatWheatUsd(wheatChartData.latestPoint.hrsMt)}
+                </span>
+              </div>
+
+              {/* X-Axis Active Date Badge (Bottom Border) */}
+              {wheatCrosshairState?.active && (
+                <div
+                  className="absolute bottom-0 pointer-events-none transform -translate-x-1/2 z-20"
+                  style={{ left: `${wheatCrosshairState.xPct}%` }}
+                >
+                  <span className="bg-[#0F172A] text-white font-mono text-[11px] px-2 py-0.5 rounded shadow-sm whitespace-nowrap block font-semibold">
+                    {wheatCrosshairState.reportDate}
+                  </span>
+                </div>
+              )}
+
+              {/* Floating Multi-Class Hover Tooltip Card */}
+              {wheatCrosshairState?.active && (
+                <div 
+                  className="absolute top-2 pointer-events-none z-30 bg-white/95 backdrop-blur-xs border border-slate-200 shadow-md rounded p-2.5 text-xs font-mono space-y-1"
+                  style={{ left: wheatCrosshairState.xPct > 55 ? '12px' : 'auto', right: wheatCrosshairState.xPct > 55 ? 'auto' : '12px' }}
+                >
+                  <div className="font-bold text-slate-800 border-b border-slate-100 pb-1 font-sans flex items-center justify-between gap-4">
+                    <span>{wheatCrosshairState.reportDate}</span>
+                    <span className="px-1.5 py-0.5 bg-slate-100 text-slate-600 rounded text-[10px] font-normal tracking-tight font-sans">
+                      {formatContractMonth(wheatCrosshairState.contractMonth)}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between gap-4 text-[#DF0029]">
+                    <span className="font-sans font-medium flex items-center gap-1">
+                      <span className="w-2 h-2 rounded-full bg-[#DF0029]"></span> SRW:
+                    </span>
+                    <span className="font-bold">${formatWheatUsd(wheatCrosshairState.srwMt)}/MT</span>
+                  </div>
+                  <div className="flex items-center justify-between gap-4 text-[#D97706]">
+                    <span className="font-sans font-medium flex items-center gap-1">
+                      <span className="w-2 h-2 rounded-full bg-[#D97706]"></span> HRW:
+                    </span>
+                    <span className="font-bold">${formatWheatUsd(wheatCrosshairState.hrwMt)}/MT</span>
+                  </div>
+                  <div className="flex items-center justify-between gap-4 text-[#2563EB]">
+                    <span className="font-sans font-medium flex items-center gap-1">
+                      <span className="w-2 h-2 rounded-full bg-[#2563EB]"></span> HRS:
+                    </span>
+                    <span className="font-bold">${formatWheatUsd(wheatCrosshairState.hrsMt)}/MT</span>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* X-Axis Report Dates */}
+            <div className="flex items-center justify-between text-[11px] text-[#9ca3af] font-mono border-t border-[#e5e7eb] pt-2">
+              <span>{wheatChartData.axisLabels[0]}</span>
+              <span>{wheatChartData.axisLabels[1]}</span>
+              <span>{wheatChartData.axisLabels[2]}</span>
+              <span>{wheatChartData.axisLabels[3]}</span>
+            </div>
+          </div>
+        ) : (
+          <div className="h-68 sm:h-76 w-full bg-[#fafbfc] border border-[#f3f4f6] rounded-lg p-4 flex flex-col justify-between relative overflow-hidden select-none">
+            <div className="grid grid-cols-3 w-full items-center text-xs text-[#6b7280] font-mono relative z-10 bg-[#fafbfc]">
+              <span className="text-left">최저: {formatChartPrice(chartData.low)}</span>
+              <span className="text-center">평균: {formatChartPrice(chartData.avg)}</span>
+              <span className="text-right">최고: {formatChartPrice(chartData.high)}</span>
+            </div>
+
+            <div
+              className="relative h-48 sm:h-52 w-full flex items-center justify-center my-2 cursor-crosshair group"
+              onMouseMove={handleChartMouseMove}
+              onMouseLeave={handleChartMouseLeave}
+            >
+              <svg className="w-full h-full text-[#DF0029] overflow-visible" fill="none" preserveAspectRatio="none" viewBox="0 0 500 150">
+                <defs>
+                  <linearGradient id={`grad-${commodity.id}`} x1="0%" y1="0%" x2="0%" y2="100%">
+                    <stop offset="0%" stopColor="#DF0029" stopOpacity="0.25" />
+                    <stop offset="100%" stopColor="#DF0029" stopOpacity="0.0" />
+                  </linearGradient>
+                </defs>
+
+                {/* Horizontal clean gridlines */}
+                {chartData.ticks.map((tick, idx) => (
+                  <line
+                    key={`grid-${idx}`}
+                    x1={0}
+                    y1={tick.y}
+                    x2={500}
+                    y2={tick.y}
+                    stroke="#F1F5F9"
+                    strokeWidth={1}
+                  />
+                ))}
+
+                <path
+                  d={chartData.areaPath}
+                  fill={`url(#grad-${commodity.id})`}
+                />
+                <path
+                  d={chartData.linePath}
+                  stroke="#DF0029"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                />
+
+                {/* Crosshair guide lines & snapped point */}
+                {crosshairState?.active && (
+                  <g>
+                    <line
+                      x1={crosshairState.snappedX}
+                      y1={0}
+                      x2={crosshairState.snappedX}
+                      y2={150}
+                      stroke="#94a3b8"
+                      strokeWidth="1"
+                      strokeDasharray="3 3"
+                    />
+                    <circle
+                      cx={crosshairState.snappedX}
+                      cy={crosshairState.snappedY}
+                      r="4.5"
+                      fill="#DF0829"
+                      stroke="#ffffff"
+                      strokeWidth="2"
+                    />
+                  </g>
+                )}
+              </svg>
+
+              {/* Stacked Right Y-Axis Numeric Tick Labels */}
+              <div className="absolute right-1 top-0 bottom-0 pointer-events-none z-0">
+                {chartData.ticks.map((tick, idx) => (
+                  <span
+                    key={`tick-label-${idx}`}
+                    className="absolute right-0 text-[10px] text-slate-400 font-mono transform -translate-y-1/2 bg-[#fafbfc] px-1 rounded select-none z-0"
+                    style={{ top: `${(tick.y / 150) * 100}%` }}
+                  >
+                    {Math.round(tick.value).toLocaleString('en-US')}
+                  </span>
+                ))}
+              </div>
+
+              {/* Permanent Fixed Live Price Badge */}
+              <div
+                className="absolute right-0 pointer-events-none transform -translate-y-1/2 z-10"
+                style={{ top: `${liveYPct}%` }}
+              >
+                <span className="bg-[#DF0829] text-white px-2 py-0.5 rounded text-[11px] font-mono font-bold shadow-sm whitespace-nowrap block">
+                  {formatChartPrice(latestLivePrice)}
+                </span>
+              </div>
+
+              {/* X-Axis Active Badge */}
+              {crosshairState?.active && (
+                <div
+                  className="absolute bottom-0 pointer-events-none transform -translate-x-1/2 z-20"
+                  style={{ left: `${crosshairState.xPct}%` }}
+                >
+                  <span className="bg-[#0F172A] text-white font-mono text-[11px] px-2 py-0.5 rounded shadow-sm whitespace-nowrap block font-semibold">
+                    {crosshairState.date}
+                  </span>
+                </div>
+              )}
+
+              {/* Dynamic Interactive Hover Tooltip Card */}
+              {crosshairState?.active && (
+                <div 
+                  className="absolute pointer-events-none z-30 bg-white/95 backdrop-blur-xs border border-slate-200 shadow-md rounded p-2.5 text-xs font-mono space-y-1"
+                  style={{ top: '8px', left: crosshairState.xPct > 55 ? '12px' : 'auto', right: crosshairState.xPct > 55 ? 'auto' : '12px' }}
+                >
+                  <div className="font-bold text-slate-800 border-b border-slate-100 pb-1 font-sans flex items-center justify-between gap-4">
+                    <span>{crosshairState.date}</span>
+                    <span className="text-[10px] text-slate-500 font-mono">{commodity.gradeEn}</span>
+                  </div>
+                  <div className="flex items-center justify-between gap-4 text-[#DF0029]">
+                    <span className="font-sans font-medium flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-[#DF0029]"></span> {commodity.nameKo}:
+                    </span>
+                    <div className="text-right">
+                      <span className="font-bold">
+                        {currencySymbol}{formatConvertedPrice(crosshairState.price)} <span className="text-[10px] font-semibold text-slate-500">{currencyLabel}</span>
+                      </span>
+                      {commodity.id === 'corn' && (
+                        <div className="text-[10px] text-slate-400 font-normal">
+                          (${((crosshairState.price / (currency === 'KRW' ? exchangeRate : currency === 'EUR' ? 1 / 1.08 : 1)) / 39.368).toFixed(2)}/bu · {Math.round(((crosshairState.price / (currency === 'KRW' ? exchangeRate : currency === 'EUR' ? 1 / 1.08 : 1)) / 39.368) * 100)} USd)
+                        </div>
+                      )}
+                      {commodity.id === 'soybean' && (
+                        <div className="text-[10px] text-slate-400 font-normal">
+                          (${((crosshairState.price / (currency === 'KRW' ? exchangeRate : currency === 'EUR' ? 1 / 1.08 : 1)) / 36.7437).toFixed(2)}/bu · {Math.round(((crosshairState.price / (currency === 'KRW' ? exchangeRate : currency === 'EUR' ? 1 / 1.08 : 1)) / 36.7437) * 100)} USd)
+                        </div>
+                      )}
+                      {commodity.id === 'palm-oil' && (
+                        <div className="text-[10px] text-slate-400 font-normal">
+                          (MYR {Math.round((crosshairState.price / (currency === 'KRW' ? exchangeRate : currency === 'EUR' ? 1 / 1.08 : 1)) * 4.45).toLocaleString('en-US')}/MT)
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="flex items-center justify-between text-[11px] text-[#9ca3af] font-mono border-t border-[#e5e7eb] pt-2">
+              <span>{chartData.axisLabels[0]}</span>
+              <span>{chartData.axisLabels[1]}</span>
+              <span>{chartData.axisLabels[2]}</span>
+              <span>{chartData.axisLabels[3]}</span>
+            </div>
+          </div>
+        )}
+
+        {/* 52-Week Range Bar / Summary */}
+        {isWheat ? (
+          <div className="p-4 bg-[#f9fafb] rounded-lg border border-[#e5e7eb] space-y-3">
+            <div className="flex items-center justify-between text-xs font-bold">
+              <span className="text-[#6b7280]">U.S. Wheat Associates 52주 가격 밴드 및 위치 분석 (USD/MT)</span>
+              <span className="font-mono text-[#111827]">December 2026 인도물 벤치마크</span>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="font-bold text-slate-800 flex items-center gap-1">
+                    <span className="w-2 h-2 rounded-full bg-[#DF0029]"></span> CBOT SRW
+                  </span>
+                  <span className="font-mono text-slate-600 text-[11px]">밴드 81% 위치</span>
+                </div>
+                <div className="w-full bg-[#e5e7eb] h-2 rounded-full overflow-hidden">
+                  <div className="bg-[#DF0029] h-full rounded-full" style={{ width: '81%' }}></div>
+                </div>
+                <div className="flex items-center justify-between text-[10px] font-mono text-slate-400">
+                  <span>저: $187.03</span>
+                  <span className="font-bold text-slate-800">현: $262.35</span>
+                  <span>고: $279.62</span>
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="font-bold text-slate-800 flex items-center gap-1">
+                    <span className="w-2 h-2 rounded-full bg-[#D97706]"></span> KCBT HRW
+                  </span>
+                  <span className="font-mono text-slate-600 text-[11px]">밴드 87% 위치</span>
+                </div>
+                <div className="w-full bg-[#e5e7eb] h-2 rounded-full overflow-hidden">
+                  <div className="bg-[#D97706] h-full rounded-full" style={{ width: '87%' }}></div>
+                </div>
+                <div className="flex items-center justify-between text-[10px] font-mono text-slate-400">
+                  <span>저: $189.23</span>
+                  <span className="font-bold text-slate-800">현: $288.07</span>
+                  <span>고: $302.03</span>
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="font-bold text-slate-800 flex items-center gap-1">
+                    <span className="w-2 h-2 rounded-full bg-[#2563EB]"></span> MIAX HRS
+                  </span>
+                  <span className="font-mono text-slate-600 text-[11px]">밴드 90% 위치</span>
+                </div>
+                <div className="w-full bg-[#e5e7eb] h-2 rounded-full overflow-hidden">
+                  <div className="bg-[#2563EB] h-full rounded-full" style={{ width: '90%' }}></div>
+                </div>
+                <div className="flex items-center justify-between text-[10px] font-mono text-slate-400">
+                  <span>저: $211.64</span>
+                  <span className="font-bold text-slate-800">현: $272.27</span>
+                  <span>고: $278.52</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="p-4 bg-[#f9fafb] rounded-lg border border-[#e5e7eb] space-y-2">
+            <div className="flex items-center justify-between text-xs font-bold">
+              <span className="text-[#6b7280]">52주 밴드 내 현재 위치 (52-Week Range Percentile)</span>
+              <span className="font-mono text-[#111827]">
+                {range52WeekStats.pct >= 98 
+                  ? "52주 최고가 (고평가 구간)" 
+                  : range52WeekStats.pct <= 2 
+                  ? "52주 최저가 (저평가 구간)" 
+                  : `상위 ${100 - range52WeekStats.pct}% (${range52WeekStats.zone})`}
+              </span>
+            </div>
+            <div className="w-full bg-[#e5e7eb] h-2.5 rounded-full overflow-hidden flex">
+              <div className="bg-[#DF0029] h-full rounded-full transition-all duration-500" style={{ width: `${range52WeekStats.pct}%` }}></div>
+            </div>
+            <div className="flex items-center justify-between text-xs font-mono text-[#6b7280]">
+              <span>52주 저점: {formatChartPrice(range52WeekStats.low)}</span>
+              <span className="font-bold text-[#111827]">현재: {formatChartPrice(range52WeekStats.current)}</span>
+              <span>52주 고점: {formatChartPrice(range52WeekStats.high)}</span>
+            </div>
+          </div>
+        )}
+      </section>
+
+      {/* 4. AI Market View & Strategy Recommendation */}
+      <AiRecommendation
+        key={selectedCommodity?.id || (selectedCommodity as any)?.slug || (selectedCommodity as any)?.key || commodity.id}
+        commodityId={commodity.id}
+        currency={commodity.id === 'potato-starch' ? 'EUR' : currency}
+        confidenceScore={aiInsight?.confidenceScore || 88}
+        recommendedCoverage={activeDeskRecommendation}
+        executiveSummary={aiInsight?.executiveSummary}
+        bullishFactors={aiInsight?.bullishFactors}
+        bearishFactors={aiInsight?.bearishFactors}
+        watchItems={aiInsight?.watchItems}
+        isLoading={isAiLoading}
+        isError={isAiError}
+        errorMessage={aiErrorMessage}
+        modelVersion={modelVersion}
+        isSyncing={isSyncing}
+        className="print:mt-6 break-inside-avoid print:break-inside-avoid"
+      />
+
+      {/* 5. Lower Section: SCM Global S&D Balance & Sourcing Origin Radar */}
+      <div className="wasde-origin-radar-section wasde-origin-radar-wrapper wasde-section-container grid grid-cols-1 lg:grid-cols-2 gap-4 print:mt-0 print:grid-cols-2 print:break-before-page break-inside-avoid">
+        {/* S&D Balance */}
+        <CommodityWasdeCard
+          key={`wasde-card-${commodity.id}`}
+          commodityId={commodity.id}
+          commodityName={commodity.name}
+          customBrief={commodity.aiSynthesis}
+          className="print:break-inside-avoid"
+        />
+
+        {/* Sourcing Origin Radar */}
+        <OriginRadar
+          key={`origin-radar-${commodity.id}`}
+          commodityId={commodity.id}
+          origins={combinedOrigins}
+          className="print:break-inside-avoid"
+        />
+      </div>
+
+      {/* 5. Key Issues & Market News (Market Intelligence) */}
+      <section className="market-intelligence-section print:mt-8 print:pt-4 break-inside-avoid">
+        <CommodityNews commodityId={commodity.id} />
+      </section>
+    </div>
+  );
+};
