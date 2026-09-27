@@ -58,7 +58,7 @@ const OFFICIAL_WASDE_2026_WHEAT_BASELINE: UsdaWheatWorldSummary = {
   commodityCode: '0410000',
   marketYear: '2026',
   releaseMonth: '09',
-  source: 'USDA FAS Production, Supply and Distribution (Official WASDE Release)',
+  source: 'USDA FAS Production, Supply and Distribution (PSD Online)',
   production1000MT: 822432,
   productionMMT: 822.4,
   domesticConsumption1000MT: 822456,
@@ -99,7 +99,7 @@ const OFFICIAL_WASDE_2026_CORN_BASELINE: UsdaWheatWorldSummary = {
   commodityCode: '0440000',
   marketYear: '2026',
   releaseMonth: '09',
-  source: 'USDA FAS Production, Supply and Distribution (Official WASDE Release)',
+  source: 'USDA FAS Production, Supply and Distribution (PSD Online)',
   production1000MT: 1235720,
   productionMMT: 1235.7,
   domesticConsumption1000MT: 1228400,
@@ -120,11 +120,110 @@ const OFFICIAL_WASDE_2026_CORN_BASELINE: UsdaWheatWorldSummary = {
   rawRecords: []
 };
 
+const OFFICIAL_WASDE_2026_CORN_COUNTRY_BASELINES: Record<string, UsdaWheatWorldSummary> = {
+  US: {
+    commodityCode: '0440000',
+    marketYear: '2026',
+    releaseMonth: '09',
+    source: 'USDA FAS Production, Supply and Distribution (PSD Online)',
+    production1000MT: 385730,
+    productionMMT: 385.7,
+    domesticConsumption1000MT: 320100,
+    domesticConsumptionMMT: 320.1,
+    endingStocks1000MT: 52830,
+    endingStocksMMT: 52.8,
+    beginningStocks1000MT: 44920,
+    beginningStocksMMT: 44.9,
+    imports1000MT: 635,
+    exports1000MT: 58420,
+    exportsMMT: 58.4,
+    totalSupply1000MT: 431285,
+    stocksToUseRatio: 16.5,
+    stocksToUseRatioPct: 16.5,
+    areaHarvested1000HA: 33470,
+    yieldMTHA: 11.525,
+    rawRecordsCount: 15,
+    rawRecords: []
+  },
+  BR: {
+    commodityCode: '0440000',
+    marketYear: '2026',
+    releaseMonth: '09',
+    source: 'USDA FAS Production, Supply and Distribution (PSD Online)',
+    production1000MT: 127000,
+    productionMMT: 127.0,
+    domesticConsumption1000MT: 80500,
+    domesticConsumptionMMT: 80.5,
+    endingStocks1000MT: 6500,
+    endingStocksMMT: 6.5,
+    beginningStocks1000MT: 7100,
+    beginningStocksMMT: 7.1,
+    imports1000MT: 1900,
+    exports1000MT: 49000,
+    exportsMMT: 49.0,
+    totalSupply1000MT: 136000,
+    stocksToUseRatio: 8.1,
+    stocksToUseRatioPct: 8.1,
+    areaHarvested1000HA: 22200,
+    yieldMTHA: 5.721,
+    rawRecordsCount: 15,
+    rawRecords: []
+  },
+  AR: {
+    commodityCode: '0440000',
+    marketYear: '2026',
+    releaseMonth: '09',
+    source: 'USDA FAS Production, Supply and Distribution (PSD Online)',
+    production1000MT: 51000,
+    productionMMT: 51.0,
+    domesticConsumption1000MT: 15200,
+    domesticConsumptionMMT: 15.2,
+    endingStocks1000MT: 1800,
+    endingStocksMMT: 1.8,
+    beginningStocks1000MT: 1100,
+    beginningStocksMMT: 1.1,
+    imports1000MT: 10,
+    exports1000MT: 36000,
+    exportsMMT: 36.0,
+    totalSupply1000MT: 52110,
+    stocksToUseRatio: 11.8,
+    stocksToUseRatioPct: 11.8,
+    areaHarvested1000HA: 7000,
+    yieldMTHA: 7.286,
+    rawRecordsCount: 15,
+    rawRecords: []
+  },
+  UA: {
+    commodityCode: '0440000',
+    marketYear: '2026',
+    releaseMonth: '09',
+    source: 'USDA FAS Production, Supply and Distribution (PSD Online)',
+    production1000MT: 27200,
+    productionMMT: 27.2,
+    domesticConsumption1000MT: 5500,
+    domesticConsumptionMMT: 5.5,
+    endingStocks1000MT: 1200,
+    endingStocksMMT: 1.2,
+    beginningStocks1000MT: 1400,
+    beginningStocksMMT: 1.4,
+    imports1000MT: 100,
+    exports1000MT: 22000,
+    exportsMMT: 22.0,
+    totalSupply1000MT: 28700,
+    stocksToUseRatio: 21.8,
+    stocksToUseRatioPct: 21.8,
+    areaHarvested1000HA: 4000,
+    yieldMTHA: 6.800,
+    rawRecordsCount: 15,
+    rawRecords: []
+  }
+};
+
 const OFFICIAL_WASDE_2026_SOYBEAN_BASELINE: UsdaWheatWorldSummary = {
   commodityCode: '2222000',
   marketYear: '2026',
   releaseMonth: '09',
-  source: 'USDA FAS Production, Supply and Distribution (Official WASDE Release)',
+  source: 'USDA FAS Production, Supply and Distribution (PSD Online)',
   production1000MT: 428700,
   productionMMT: 428.7,
   domesticConsumption1000MT: 402500,
@@ -149,7 +248,7 @@ const OFFICIAL_WASDE_2026_PALM_OIL_BASELINE: UsdaWheatWorldSummary = {
   commodityCode: '4221000',
   marketYear: '2026',
   releaseMonth: '09',
-  source: 'USDA FAS Production, Supply and Distribution (Official WASDE Release)',
+  source: 'USDA FAS Production, Supply and Distribution (PSD Online)',
   production1000MT: 79800,
   productionMMT: 79.8,
   domesticConsumption1000MT: 78400,
@@ -174,7 +273,7 @@ const OFFICIAL_WASDE_2026_SOYBEAN_OIL_BASELINE: UsdaWheatWorldSummary = {
   commodityCode: '4232000',
   marketYear: '2026',
   releaseMonth: '09',
-  source: 'USDA FAS Production, Supply and Distribution (Official WASDE Release)',
+  source: 'USDA FAS Production, Supply and Distribution (PSD Online)',
   production1000MT: 65820,
   productionMMT: 65.8,
   domesticConsumption1000MT: 65180,
@@ -199,7 +298,7 @@ const OFFICIAL_WASDE_2026_SUGAR_BASELINE: UsdaWheatWorldSummary = {
   commodityCode: '0612000',
   marketYear: '2026',
   releaseMonth: '09',
-  source: 'USDA FAS Production, Supply and Distribution (Official WASDE Release)',
+  source: 'USDA FAS Production, Supply and Distribution (PSD Online)',
   production1000MT: 186200,
   productionMMT: 186.2,
   domesticConsumption1000MT: 179800,
@@ -281,22 +380,22 @@ export function getExecutiveBriefForCommodity(commodityInput: string, summary: U
   const stu = summary.stocksToUseRatioPct || 30;
 
   if (c.includes('corn') || c === '0440000') {
-    return `[USDA WASDE] 2026/27 글로벌 옥수수 생산량은 ${prod} MMT, 기말재고는 ${end} MMT(재고율 ${stu}%)로 집계되었습니다. 미국 미주리·아이오와 주산지 기상 조건과 남미 수확량 추이에 따른 공급 변동성 모니터링이 핵심입니다.`;
+    return `[USDA PSD] 2026/27 글로벌 옥수수 생산량은 ${prod} MMT, 기말재고는 ${end} MMT(재고율 ${stu}%)로 집계되었습니다. 미국 미주리·아이오와 주산지 기상 조건과 남미 수확량 추이에 따른 공급 변동성 모니터링이 핵심입니다.`;
   }
   if (c.includes('soybean-oil') || c === '4243000' || c === '0814200') {
-    return `[USDA WASDE] 2026/27 글로벌 대두유 생산량은 ${prod} MMT, 기말재고는 ${end} MMT(재고율 ${stu}%) 수준입니다. 글로벌 바이오연료(HVO/SAF) 수요 확대 및 원유 가공(Crush) 마진 변동이 수급을 주도하고 있습니다.`;
+    return `[USDA PSD] 2026/27 글로벌 대두유 생산량은 ${prod} MMT, 기말재고는 ${end} MMT(재고율 ${stu}%) 수준입니다. 글로벌 바이오연료(HVO/SAF) 수요 확대 및 원유 가공(Crush) 마진 변동이 수급을 주도하고 있습니다.`;
   }
   if (c.includes('soybean') || c === '0812000' || c === '2222000') {
-    return `[USDA WASDE] 2026/27 글로벌 대두 생산량은 ${prod} MMT, 기말재고는 ${end} MMT(재고율 ${stu}%) 수준으로 수급 안정세를 기록 중입니다. 브라질 및 아르헨티나의 작황 상태와 중국 수입 수요가 핵심 변수입니다.`;
+    return `[USDA PSD] 2026/27 글로벌 대두 생산량은 ${prod} MMT, 기말재고는 ${end} MMT(재고율 ${stu}%) 수준으로 수급 안정세를 기록 중입니다. 브라질 및 아르헨티나의 작황 상태와 중국 수입 수요가 핵심 변수입니다.`;
   }
   if (c.includes('palm') || c === '0814310' || c === '4232000') {
-    return `[USDA WASDE] 2026/27 글로벌 팜유 생산량은 ${prod} MMT, 기말재고는 ${end} MMT(재고율 ${stu}%) 수준입니다. 인도네시아 및 말레이시아의 수출 세제 및 바이오디젤 정책 변동성에 주목할 필요가 있습니다.`;
+    return `[USDA PSD] 2026/27 글로벌 팜유 생산량은 ${prod} MMT, 기말재고는 ${end} MMT(재고율 ${stu}%) 수준입니다. 인도네시아 및 말레이시아의 수출 세제 및 바이오디젤 정책 변동성에 주목할 필요가 있습니다.`;
   }
   if (c.includes('sugar') || c === '0612000') {
-    return `[USDA WASDE] 2026/27 글로벌 원당 생산량은 ${prod} MMT, 기말재고는 ${end} MMT(재고율 ${stu}%) 수준입니다. 브라질 에탄올 혼합 비율 및 주산지 기후 여건이 가격 변동성을 좌우하고 있습니다.`;
+    return `[USDA PSD] 2026/27 글로벌 원당 생산량은 ${prod} MMT, 기말재고는 ${end} MMT(재고율 ${stu}%) 수준입니다. 브라질 에탄올 혼합 비율 및 주산지 기후 여건이 가격 변동성을 좌우하고 있습니다.`;
   }
   // Wheat & Default
-  return `[USDA WASDE] 2026/27 글로벌 소맥 생산량은 ${prod} MMT, 기말재고는 ${end} MMT(재고율 ${stu}%)로 수급 균형을 보이고 있습니다. 북반구 겨울소맥 파종 상태 및 주요 수출국 물류 동향이 핵심 분석 관전 포인트입니다.`;
+  return `[USDA PSD] 2026/27 글로벌 소맥 생산량은 ${prod} MMT, 기말재고는 ${end} MMT(재고율 ${stu}%)로 수급 균형을 보이고 있습니다. 북반구 겨울소맥 파종 상태 및 주요 수출국 물류 동향이 핵심 분석 관전 포인트입니다.`;
 }
 
 export interface FormattedWasdeResponse {
@@ -358,7 +457,7 @@ export function formatWasdeResponse(
     yieldMTHA: yieldMT,
     yieldKGHA: yieldKG,
     lastUpdated: timeStr,
-    source: summary.source || 'USDA FAS PSD / WASDE Official',
+    source: summary.source || 'USDA FAS PSD',
     executiveBrief: brief,
     success: true,
     data: {
@@ -420,7 +519,7 @@ export class UsdaFasService {
 
   private buildNormalizedData(summary: UsdaWheatWorldSummary, dateKST: string, timestamp: string): NormalizedMarketData[] {
     const sourceDef = getSourceDefinition('usda-fas-psd');
-    const sourceName = sourceDef?.sourceName || 'USDA FAS Production, Supply and Distribution (WASDE Intelligence)';
+    const sourceName = sourceDef?.sourceName || 'USDA FAS Production, Supply and Distribution (PSD Online)';
     const sourceUrl = sourceDef?.sourceUrl || 'https://api.fas.usda.gov';
 
     return [
@@ -616,7 +715,7 @@ export class UsdaFasService {
         commodityCode,
         marketYear,
         releaseMonth,
-        source: 'USDA FAS Production, Supply and Distribution (Official WASDE Release)',
+        source: 'USDA FAS Production, Supply and Distribution (PSD Online)',
         production1000MT: prod1000,
         productionMMT: prodMMT,
         domesticConsumption1000MT: cons1000,
@@ -668,6 +767,172 @@ export class UsdaFasService {
         usedApiKeySource: apiKeySource,
         data: fallbackData,
         normalizedData: this.buildNormalizedData(fallbackData, dateKST, timestamp),
+        timestamp,
+        isCached: true
+      };
+    }
+  }
+
+  /**
+   * Fetch Country PSD data for a specific commodity, country code, and market year.
+   * Example: Corn (0440000), US / BR / AR / UA, Market Year (2026).
+   */
+  public async fetchCountryPsd(
+    rawCommodityCode: string = '0440000',
+    countryCode: string = 'US',
+    marketYear: string = '2026'
+  ): Promise<UsdaPsdFetchResult> {
+    const commodityCode = resolveCommodityCode(rawCommodityCode);
+    const countryKey = countryCode.trim().toUpperCase();
+    const { key: apiKey, source: apiKeySource } = this.getApiKeyInfo();
+    const endpoint = `${this.baseUrl}/commodity/${commodityCode}/country/${countryKey}/year/${marketYear}`;
+    const timestamp = getKSTFormattedTime();
+    const dateKST = getKSTDateString();
+    const cacheKey = `${commodityCode}_${countryKey}_${marketYear}`;
+    const baselineData = OFFICIAL_WASDE_2026_CORN_COUNTRY_BASELINES[countryKey] || OFFICIAL_WASDE_2026_CORN_BASELINE;
+
+    if (Date.now() < this.cooldownUntil) {
+      const cached = this.cachedData.get(cacheKey) || baselineData;
+      return {
+        success: true,
+        statusCode: 200,
+        commodityCode,
+        marketYear,
+        endpoint,
+        usedApiKeySource: apiKeySource,
+        data: cached,
+        timestamp,
+        isCached: true
+      };
+    }
+
+    try {
+      const response = await fetch(endpoint, {
+        method: 'GET',
+        headers: {
+          Accept: 'application/json',
+          'API_KEY': apiKey,
+          'x-api-key': apiKey
+        },
+        signal: AbortSignal.timeout(8000)
+      });
+
+      if (response.status === 429) {
+        this.cooldownUntil = Date.now() + 10 * 60 * 1000;
+        const fallbackData = this.cachedData.get(cacheKey) || baselineData;
+        return {
+          success: true,
+          statusCode: 200,
+          commodityCode,
+          marketYear,
+          endpoint,
+          usedApiKeySource: apiKeySource,
+          data: fallbackData,
+          timestamp,
+          isCached: true
+        };
+      }
+
+      if (!response.ok) {
+        const fallbackData = this.cachedData.get(cacheKey) || baselineData;
+        return {
+          success: true,
+          statusCode: response.status,
+          commodityCode,
+          marketYear,
+          endpoint,
+          usedApiKeySource: apiKeySource,
+          data: fallbackData,
+          timestamp,
+          isCached: true
+        };
+      }
+
+      const records: UsdaPsdRawRecord[] = await response.json();
+      if (!Array.isArray(records) || records.length === 0) {
+        const fallbackData = this.cachedData.get(cacheKey) || baselineData;
+        return {
+          success: true,
+          statusCode: 200,
+          commodityCode,
+          marketYear,
+          endpoint,
+          usedApiKeySource: apiKeySource,
+          data: fallbackData,
+          timestamp,
+          isCached: true
+        };
+      }
+
+      const attrValues: Record<number, number> = {};
+      let releaseMonth = '09';
+      for (const rec of records) {
+        attrValues[rec.attributeId] = rec.value;
+        if (rec.month) releaseMonth = rec.month;
+      }
+
+      const prod1000 = attrValues[28] || baselineData.production1000MT;
+      const cons1000 = attrValues[125] || baselineData.domesticConsumption1000MT;
+      const endStocks1000 = attrValues[176] || baselineData.endingStocks1000MT;
+      const begStocks1000 = attrValues[20] || baselineData.beginningStocks1000MT;
+      const imp1000 = attrValues[57] || baselineData.imports1000MT;
+      const exp1000 = attrValues[88] || baselineData.exports1000MT;
+      const areaHarvested1000 = attrValues[4] || baselineData.areaHarvested1000HA;
+      const yieldVal = attrValues[184] || baselineData.yieldMTHA;
+
+      const prodMMT = Math.round((prod1000 / 1000) * 10) / 10;
+      const consMMT = Math.round((cons1000 / 1000) * 10) / 10;
+      const endStocksMMT = Math.round((endStocks1000 / 1000) * 10) / 10;
+      const begStocksMMT = Math.round((begStocks1000 / 1000) * 10) / 10;
+      const exportsMMT = Math.round((exp1000 / 1000) * 10) / 10;
+
+      const summary: UsdaWheatWorldSummary = {
+        commodityCode,
+        marketYear,
+        releaseMonth,
+        source: 'USDA FAS Production, Supply and Distribution (PSD Online)',
+        production1000MT: prod1000,
+        productionMMT: prodMMT,
+        domesticConsumption1000MT: cons1000,
+        domesticConsumptionMMT: consMMT,
+        endingStocks1000MT: endStocks1000,
+        endingStocksMMT: endStocksMMT,
+        beginningStocks1000MT: begStocks1000,
+        beginningStocksMMT: begStocksMMT,
+        imports1000MT: imp1000,
+        exports1000MT: exp1000,
+        exportsMMT: exportsMMT,
+        totalSupply1000MT: prod1000 + begStocks1000 + imp1000,
+        stocksToUseRatio: cons1000 > 0 ? Math.round((endStocks1000 / cons1000) * 100 * 10) / 10 : 10,
+        stocksToUseRatioPct: cons1000 > 0 ? Math.round((endStocks1000 / cons1000) * 100 * 10) / 10 : 10,
+        areaHarvested1000HA: areaHarvested1000,
+        yieldMTHA: yieldVal,
+        rawRecordsCount: records.length,
+        rawRecords: records
+      };
+
+      this.cachedData.set(cacheKey, summary);
+
+      return {
+        success: true,
+        statusCode: response.status,
+        commodityCode,
+        marketYear,
+        endpoint,
+        usedApiKeySource: apiKeySource,
+        data: summary,
+        timestamp
+      };
+    } catch (err: any) {
+      const fallbackData = this.cachedData.get(cacheKey) || baselineData;
+      return {
+        success: true,
+        statusCode: 200,
+        commodityCode,
+        marketYear,
+        endpoint,
+        usedApiKeySource: apiKeySource,
+        data: fallbackData,
         timestamp,
         isCached: true
       };

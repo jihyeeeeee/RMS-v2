@@ -148,7 +148,7 @@ class GeminiController {
           aiBriefSynthesis: `글로벌 소맥 및 유지류 시장은 흑해 수출 회랑 불확실성과 남미 주요 파종지의 가뭄으로 단기 상승 압력에 직면해 있습니다. 실시간 환율(USD/KRW ${pipeline.usdKrw.toLocaleString()}원)과 원양 운임(SCFI ${pipeline.energy.scfi}pt)을 감안한 부산도착원가는 소맥 ₩${defaultCommodities.wheat.landedKrw}/kg, 팜유 ₩${defaultCommodities.palmOil.landedKrw}/kg 수준입니다.`,
           directives: [
             { type: 'action', label: '조치 필요 (Action Required)', title: `BMD 하락 구간에서 2025 Q1 팜유 포워드 커버리지(목표 ₩${defaultCommodities.palmOil.landedKrw}/kg 이하) 확보`, source: '출처: RMS 멀티소스 피드 종합 분석' },
-            { type: 'watch', label: '주시 (Watch Closely)', title: `미국 농무부(USDA) 캔자스 동계소맥 작황 보고서 및 콘벨트 강우(${pipeline.weather.usCornBelt.precipSumMm}mm) 모니터링`, source: '출처: USDA WASDE & Open-Meteo 레이더' },
+            { type: 'watch', label: '주시 (Watch Closely)', title: `미국 농무부(USDA) 캔자스 동계소맥 작황 보고서 및 콘벨트 강우(${pipeline.weather.usCornBelt.precipSumMm}mm) 모니터링`, source: '출처: USDA FAS PSD & Open-Meteo 레이더' },
             { type: 'favorable', label: '우호적 조건 (Favorable)', title: `로테르담/함부르크발 부산향 스팟 컨테이너 운임 안정 및 감자 전분(₩${defaultCommodities.potatoStarch.landedKrw}/kg) 단가 완충`, source: '출처: EU Agri-food Data Portal' }
           ],
           citations: [

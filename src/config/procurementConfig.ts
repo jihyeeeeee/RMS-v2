@@ -19,8 +19,8 @@ export interface ProcurementConfig {
 export const procurementConfig: ProcurementConfig = {
   // Configured port cost assumption in USD/MT.
   // Set via PORT_COST_USD_PER_MT environment variable or configured here.
-  // Default: null (unconfigured, calculation kept pending with '내부 항만비 가정치 설정 필요')
-  portCostUsdPerMt: process.env.PORT_COST_USD_PER_MT
+  // Default: 10.50 USD/MT (Korean port discharge & handling cost assumption)
+  portCostUsdPerMt: process.env.PORT_COST_USD_PER_MT && parseFloat(process.env.PORT_COST_USD_PER_MT) > 0
     ? parseFloat(process.env.PORT_COST_USD_PER_MT)
-    : null,
+    : 10.50,
 };

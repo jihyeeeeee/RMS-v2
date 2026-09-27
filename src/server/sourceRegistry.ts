@@ -69,7 +69,7 @@ export const CENTRAL_SOURCE_REGISTRY: DataSourceDefinition[] = [
   },
   {
     sourceId: 'usda-fas-psd',
-    sourceName: 'USDA FAS Production, Supply and Distribution (WASDE Intelligence)',
+    sourceName: 'USDA FAS Production, Supply and Distribution (PSD Online)',
     commodity: 'wheat',
     dataCategory: 'supply-demand',
     updateFrequency: '24h',
@@ -128,8 +128,55 @@ export const CENTRAL_SOURCE_REGISTRY: DataSourceDefinition[] = [
     authenticationType: 'none',
     unit: 'Market Assessment & Macro Risk',
     sourceUrl: 'https://www.amis-outlook.org/market-monitor'
+  },
+  {
+    sourceId: 'abares-crop-report',
+    sourceName: 'ABARES (Australian Bureau of Agricultural and Resource Economics and Sciences)',
+    commodity: 'wheat',
+    dataCategory: 'supply-demand',
+    updateFrequency: '24h',
+    updateFrequencyMs: 24 * 60 * 60 * 1000,
+    endpoint: 'https://www.agriculture.gov.au/abares/research-topics/agricultural-outlook/data',
+    authenticationType: 'none',
+    unit: 'Million MT / KT',
+    sourceUrl: 'https://www.agriculture.gov.au/abares/research-topics/agricultural-outlook/data'
+  },
+  {
+    sourceId: 'aafc-field-crops',
+    sourceName: 'AAFC (Agriculture and Agri-Food Canada Principal Field Crops Outlook)',
+    commodity: 'wheat',
+    dataCategory: 'supply-demand',
+    updateFrequency: '24h',
+    updateFrequencyMs: 24 * 60 * 60 * 1000,
+    endpoint: 'https://agriculture.canada.ca/en/sector/crops/reports-statistics',
+    authenticationType: 'none',
+    unit: 'Thousand Tonnes / Million MT',
+    sourceUrl: 'https://agriculture.canada.ca/en/sector/crops/reports-statistics'
+  },
+  {
+    sourceId: 'sask-wheat-outlook',
+    sourceName: 'Sask Wheat (Saskatchewan Wheat Development Commission)',
+    commodity: 'wheat',
+    dataCategory: 'price',
+    updateFrequency: '24h',
+    updateFrequencyMs: 24 * 60 * 60 * 1000,
+    endpoint: 'https://saskwheat.ca/wheat-market-outlook-prices/',
+    authenticationType: 'none',
+    unit: 'Market Commentary & Pricing',
+    sourceUrl: 'https://saskwheat.ca/wheat-market-outlook-prices/'
+  },
+  {
+    sourceId: 'eu-agrifood-cereal',
+    sourceName: 'European Commission Agri-food Data Portal (Cereals Production API)',
+    commodity: 'wheat',
+    dataCategory: 'supply-demand',
+    updateFrequency: '24h',
+    updateFrequencyMs: 24 * 60 * 60 * 1000,
+    endpoint: 'https://api.tech.ec.europa.eu/agrifood/api/cereal/production?crops=Soft%20wheat&years=2026',
+    authenticationType: 'none',
+    unit: '1000 MT / HA',
+    sourceUrl: 'https://agridata.ec.europa.eu/extensions/API_Documentation/cereals.html'
   }
-
 ];
 
 export function getSourceDefinition(sourceId: string): DataSourceDefinition | undefined {

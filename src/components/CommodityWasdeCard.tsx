@@ -84,7 +84,7 @@ export const CommodityWasdeCard: React.FC<CommodityWasdeCardProps> = ({
           <div className="flex items-center gap-1.5 min-w-0 flex-1">
             <span className="material-symbols-outlined text-[18px] text-[#111827] shrink-0">inventory_2</span>
             <h3 className="text-base font-bold text-slate-900 break-keep">
-              글로벌 수급 밸런스 (USDA FAS PSD / Global S&D)
+              글로벌 수급 밸런스
               {commodityName ? ` - ${commodityName}` : ''}
             </h3>
             {isLoading && (

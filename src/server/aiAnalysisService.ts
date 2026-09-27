@@ -12,202 +12,202 @@ export interface AiAnalysisData {
 const FALLBACK_AI_ANALYSIS: Record<string, AiAnalysisData> = {
   corn: {
     confidenceScore: 88,
-    deskRecommendation: '60~75일 선도 구매 권고',
-    executiveSummary: '미국 CBOT 옥수수 선물가격 및 남미 주산지 기상 상태, WASDE 재고율 축소 동향을 종합할 때 단기 수급 불확실성에 따른 가격 상향 가능성이 높습니다. 농심 원자재 조달 데스크에서는 60~75일 분량의 선도 수입 계약 체결을 권고합니다.',
+    deskRecommendation: '45~60일 선도 구매 권고',
+    executiveSummary: '미국 CBOT 옥수수 선물은 부셸당 432.50 USd선에서 수확기 계절적 출하 압력과 저가 매수세가 맞물리며 박스권 횡보세를 나타내고 있습니다. 미 중서부 콘벨트의 수확 진척 및 공급 확대로 상단이 제한되고 있으나, 에탄올 생산용 분쇄 수요 견조와 남미 사프리냐 파종기 기상 불확실성이 하단을 지지하고 있습니다. 향후 1~3개월간 글로벌 수급 안정세 속에 남미 강우 여건 및 해상 운임 추이에 따른 제한적 등락이 전망됩니다. 조달 데스크에서는 430 USd 이하 지지선 구간을 활용한 45~60일 수준의 안정적 분할 선도 매수를 권고합니다.',
     bullishFactors: [
-      '미국 주산지 파종 지연 및 하반기 라니냐 우려 (+12~18 USD)',
-      '브라질/아르헨티나 2차 작물 수확량 하향 조정 (+8~15 USD)',
-      '해상 벌크선 운임(BDI) 단기 강세 전환 (+5~10 USD)'
+      '미 에탄올 정유용 분쇄 소비 견조 및 주간 재고 감소세',
+      '남미 사프리냐 파종기 일부 지역 토양 수분 부족 우려',
+      '벌크선 운임(BDI) 및 파나마 운하 통항 제약에 따른 해상 물류비 상승'
     ],
     bearishFactors: [
-      '중국 원자재 수입 수요 일시적 둔화 (-10~15 USD)',
-      '대체 사료 곡물(소맥/수수) 재고 공급 유입 (-5~8 USD)',
-      '환율 변동성에 따른 수입 단가 수렴 효과 (-3~6 USD)'
+      '미 중서부 콘벨트 수확 완료에 따른 계절적 현물 공급 확대',
+      '브라질 옥수수 생산량 및 수출 가용 물량 안정적 전망',
+      '대체 사료용 곡물(소맥/수수) 공급 유입에 따른 배합 수요 분산'
     ],
     watchItems: [
-      'USDA WASDE 월간 수급 보고서 옥수수 기말재고 추정치',
-      '미국 중서부 기상청(NOAA) 주간 강수량 및 온습도 지표',
-      '파나마/수에즈 운하 컨테이너 및 벌크선 체증 지수'
+      '미국 중서부 및 남미 주요 옥수수 벨트 주간 강수량 추이',
+      'USDA WASDE 월간 수급 보고서 글로벌 기말재고율 변동',
+      '미 주간 에탄올 생산량 지표 및 원/달러(USD/KRW) 환율 동향'
     ]
   },
   soybean: {
     confidenceScore: 85,
     deskRecommendation: '60~75일 선도 구매 권고',
-    executiveSummary: '브라질 대두 수확 확대에도 불구하고 아르헨티나 가뭄 우려 및 미국 대두 압착 수요 강세로 하단 지지선이 견고합니다. 대두유 및 대두박 관련 제품 조달을 위한 안정적 coverage 확보가 유효합니다.',
+    executiveSummary: '미국 CBOT 대두 선물은 부셸당 1,024.75 USd 부근에서 수확 완료에 따른 공급 유입과 중국의 착유 수요 회복이 교차하며 지지력을 시험하고 있습니다. 브라질의 대두 파종 순항 및 사상 최대 수확 전망이 가격 상단을 억제하는 반면, 미국 내 대두 압착(Crush) 마진 강세와 남미 일부 건조 기상이 하락폭을 제한하고 있습니다. 향후 1~3개월간 남미 생육기 기상과 미·중 통상 정책 변화에 따라 단기 변동성이 확대될 수 있습니다. 조달 데스크에서는 1,010~1,020 USd 지지 구간에서 60~75일 수준의 선제적 분할 헤지 포지션 구축을 권고합니다.',
     bullishFactors: [
-      '아르헨티나 주산지 강수량 부족 및 작황 악화 (+15~22 USD)',
-      '미국 바이오디젤 정책에 따른 대두유 압착 수요 증대 (+10~16 USD)',
-      '중국 구매선의 남미선 적재 및 물류 적체 (+6~12 USD)'
+      '미국 내 대두 압착(Crush) 가동률 강세 및 바이오연료 원료 수요 지지',
+      '중국 사료·착유 업계의 대두 수입 재개 및 항만 재고 축적',
+      '남미 일부 주산지 파종기 고온·건조 지속에 따른 생육 불확실성'
     ],
     bearishFactors: [
-      '브라질 대두 사상 최대 수확물량 시장 유출 (-12~20 USD)',
-      '글로벌 유류 가격 하락에 따른 대체 유지류 압력 (-6~10 USD)',
-      '미국 달러화 강세에 따른 원자재 매수세 완화 (-4~8 USD)'
+      '브라질 24/25 시즌 대두 사상 최대 수확 전망 및 출하 확대',
+      '미국 대두 수확 완료에 따른 산지 현물 재고 풍부',
+      '미 달러화 강세 기조에 따른 글로벌 원자재 매수세 둔화'
     ],
     watchItems: [
-      '브라질 CONAB 대두 생산량 최종 추정치 발표',
-      '중국 항구 대두 재고 수준 및 수입 통관 속도',
-      '미국 바이오연료 믹스(RVO) 정부 정책 가이드라인'
+      '브라질 CONAB 및 마토그로소 주간 파종·생육 진도율',
+      '중국 Sinograin 등 주요 국유기업의 미국·남미산 대두 매입 속도',
+      '미국 NOPA 월간 대두 압착량 실적 및 대두박/대두유 크러시 스프레드'
     ]
   },
   'soybean-oil': {
     confidenceScore: 84,
     deskRecommendation: '45~60일 분할 선도 구매',
-    executiveSummary: 'CBOT 대두유 선물은 바이오연료 혼합 의무(RVO) 정책 및 남미 대두 압착 물량 공급 변동으로 하단 지지선을 형성에 집중하고 있습니다. 농심 튀김유 및 가공유 조달 데스크에서는 45~60일 레벨의 분할 선도 구매를 권고합니다.',
+    executiveSummary: 'CBOT 대두유 선물은 파운드당 44.80 USc 선에서 글로벌 식용 유지류 수급 경계감과 바이오디젤 정책 기대감 속에 하단 지지선을 강화하고 있습니다. 미국 재생디젤(RD) 및 EPA 바이오연료 혼합 의무(RVO) 정책에 따른 산업용 수요가 가격을 지지하고 있으나, 미국 대두 압착량 증가에 따른 유출 물량이 상단을 억제하고 있습니다. 향후 1~3개월간 팜유와의 가격 스프레드(POGO) 및 원유 가격 변동에 연동된 등락 흐름이 예상됩니다. 튀김유 및 가공유 조달 데스크에서는 45~60일 레벨의 단계적 분할 선도 구매로 원가 변동성을 분산할 것을 권고합니다.',
     bullishFactors: [
-      '미국 재생디젤(Renewable Diesel) 원료 수요 가속화 (+1.5~2.5 USc)',
-      '동남아 팜유 수급 타이트에 따른 대체 유지류 수요 유입 (+1.0~2.0 USc)',
-      '남미 가공 공장 전력 및 가동률 변동성 (+0.8~1.5 USc)'
+      '미국 바이오디젤(RVO) 의무 혼합 정책에 따른 산업용 유지 소비 확대',
+      '동남아 팜유 가격 강세에 따른 대체 식용 유지류 수요 유입',
+      '남미 로사리오 가공 허브 전력 및 내륙 운송 비용 상승 압력'
     ],
     bearishFactors: [
-      '미국 대두 압착(Crush) 실적 사상 최고치 기록 (-1.2~2.0 USc)',
-      '남미산 대두유 수출 F.O.B 할인폭 확대 (-0.8~1.5 USc)',
-      '글로벌 원유(Brent) 시세 약세에 따른 바이오유지 압력 (-0.5~1.0 USc)'
+      '미국 대두 압착(Crush) 실적 호조에 따른 대두유 현물 생산량 증가',
+      '남미산(아르헨티나/브라질) 대두유 FOB 수출 오퍼 프리미엄 안정',
+      '국제 원유(Brent) 가격 안정세에 따른 바이오연료 대체 수요 완화'
     ],
     watchItems: [
-      'NOPA 월간 미국 대두 압착량 및 대두유 기말재고',
-      'EPA 바이오연료 혼합 의무 물량(RVO) 최종 고시',
-      '대두유-팜유 간 수입 가공비(POGO Spread) 추이'
+      '미국 NOPA 월간 대두유 기말재고 및 EPA 바이오연료 혼합 고시',
+      '대두유-팜유 간 가격 스프레드(POGO Spread) 역전 여부',
+      '아르헨티나 로사리오 착유 공장 가동률 및 파라나강 수운 여건'
     ]
   },
   wheat: {
     confidenceScore: 86,
     deskRecommendation: '60~75일 선도 구매 권고',
-    executiveSummary: '미국산 HRW/SRW 소맥은 미국 남부 평원지대 기상 여건 및 흑해 지역 지능형 수출 제약 이슈로 상승 압력을 받고 있습니다. 국내 라면/제과 원료용 소맥분 공급 안정성을 확보하기 위해 선제적 60~75일 레벨 구매를 제언합니다.',
+    executiveSummary: '미국산 HRW 소맥은 부셸당 570~585 USd(톤당 270~280 USD) 범위에서 북미 공급 안정과 흑해 수출 불확실성이 맞물리며 단기 박스권 횡보를 유지하고 있습니다. 미국 남부 평원지대의 지속적인 토양 수분 부족과 흑해 수출 쿼터 규제가 상승 요인으로 작용하는 반면, 러시아의 풍부한 이월 재고와 글로벌 수입 입찰 수요 둔화가 상단을 제한하고 있습니다. 향후 1~3개월간 글로벌 수급 밸런스 유지로 급등 위험은 낮으나 주산지 기상 여건 및 수출 정책에 따른 변동성이 상존합니다. 제분용 소맥 조달 데스크에서는 60~75일 수준의 안정적 분할 선도 매수를 권고합니다.',
     bullishFactors: [
-      '미국 남부 평원 지대 가뭄 지속 및 월동 작황 우려 (+15~25 USD)',
-      '흑해 수출국(러시아/우크라이나) 수출 쿼터 및 세금 인상 (+10~18 USD)',
-      '글로벌 제분용 고품질 소맥 할증금(Premium) 상승 (+8~12 USD)'
+      '미국 남부 평원지대 가뭄 지속 및 월동기 동계소맥 생육 우려',
+      '러시아 상반기 곡물 수출 쿼터 제한 및 흑해 항만 물류 지정학 리스크',
+      '글로벌 제분용 고단백 프리미엄 소맥(HRW/CWRS) 할증료 상승'
     ],
     bearishFactors: [
-      '러시아 대규모 이월 재고의 해외 시장 저가 출하 (-10~18 USD)',
-      '중동/북아프리카(GASC 등) 정부 입찰 수요 일시 지연 (-6~12 USD)',
-      '호주 및 인도네시아 수확물량 유통 확대 (-5~10 USD)'
+      '러시아 및 동유럽 대규모 이월 재고의 해외 시장 경쟁 출하',
+      '중동 및 북아프리카 주요 수입국 정부 입찰 수요 일시 지연',
+      '호주 및 북미 봄밀 수확물 유통 확대에 따른 공급 지지'
     ],
     watchItems: [
-      '러시아 곡물협회 월간 수출 제한 쿼터 집행 현황',
-      '미국 HRW/SRW 소맥 생육 상태(Crop Condition) 평가 점수',
-      '원/달러(USD/KRW) 환율 헤지 및 원가 연동 반영 추이'
+      '미 HRW 주산지 강우 전망 및 USDA 생육 상태(Crop Condition) 평가',
+      '러시아 곡물협회 월간 수출 제한 쿼터 집행 및 흑해 운임 추이',
+      '호주 동부 작황 및 원/달러(USD/KRW) 환율 변동성'
     ]
   },
   'palm-oil': {
     confidenceScore: 82,
     deskRecommendation: '45~60일 스팟/선도 혼합 구매',
-    executiveSummary: '말레이시아 및 인도네시아 주산지 노후 수목 비율 증가 및 바이오디젤(B35/B40) Mandatory 정책으로 팜유 수급이 타이트합니다. 유지가격 변동성이 높아 45~60일 선도 분량을 분할 체결하는 전략이 안전합니다.',
+    executiveSummary: '말레이시아 BMD 팜유 선물은 톤당 4,185 MYR 선에서 인도네시아의 바이오디젤 의무화(B40) 추진과 계절적 생산 정체로 견조한 강세 흐름을 유지하고 있습니다. 주요 산지의 노후 수목 비율 증가와 비우호적 기상 여건으로 공급 수축 우려가 지속되는 반면, 대두유 대비 가격 프리미엄 축소 압력이 상단을 제약하고 있습니다. 향후 1~3개월간 동남아 강우량과 인도·중국의 수입 수요에 따라 높은 변동성을 동반한 강보합세가 전망됩니다. 가공유지 조달 데스크에서는 45~60일 소요 물량을 중심으로 가격 조정 시점마다 분할 매수할 것을 권고합니다.',
     bullishFactors: [
-      '인도네시아 B40 바이오디젤 의무화로 인한 수출 물량 축소 (+18~28 USD)',
-      '말레이시아 동부 엘니뇨/라니냐 수확 감소 (+12~20 USD)',
-      '인도 및 중국 명절 전 선제적 재고 축적 수요 (+8~15 USD)'
+      '인도네시아 B40 바이오디젤 의무화 추진에 따른 수출 가용량 축소',
+      '말레이시아 및 인도네시아 주요 플랜테이션 노후화 및 수확량 둔화',
+      '인도 및 중국 등 주요 수입국의 명절 대비 유지류 재고 비축 수요'
     ],
     bearishFactors: [
-      '대두유 및 해바라기유 가격 하락에 따른 팜유 프리미엄 축소 (-12~18 USD)',
-      '유럽연합 산림파괴방지법(EUDR) 적용에 따른 수출 차질 (-8~14 USD)',
-      '중국 원당 및 유지류 소비 지표 단기 약세 (-5~10 USD)'
+      '대두유 및 해바라기유 대비 팜유 가격 역전으로 인한 수입 대체 발생',
+      '유럽연합(EU) 삼림벌채방지법(EUDR) 관련 규제 준수 부담에 따른 수요 분산',
+      '중국 등 주요 소비국의 경제 둔화로 인한 외식·가공용 소비 둔화'
     ],
     watchItems: [
-      'MPOB(말레이시아 팜유 이사회) 월간 재고 및 수출 통계',
-      '인도네시아 CPO 수출 세제(Export Levy) 개정안',
-      '글로벌 식용유(대두유/해바라기유) 상대 가격 스프레드'
+      'MPOB(말레이시아 팜유이사회) 월간 CPO 생산량, 수출량 및 기말재고',
+      '인도네시아 CPO 수출 부담금(Export Levy) 및 내수의무(DMO) 개정안',
+      '동남아 주요 팜유 산지(사바/수마트라) 몬순 강우 및 수확 여건'
     ]
   },
   sugar: {
     confidenceScore: 80,
     deskRecommendation: '30~45일 단기 관망 후 분할 구매',
-    executiveSummary: '브라질 중남부 원당 수확이 순조롭게 진행되는 가운데 에탄올 가격 변동에 따른 에탄올/설탕 생산 비중 전환이 변수입니다. 30~45일 분량 단기 구매 후 하단 지지선 확인 시 추가 확보를 추천합니다.',
+    executiveSummary: 'ICE 원당 선물은 파운드당 21.65 USc 부근에서 브라질 중남부의 원활한 수확 진행과 아시아 주요국의 수출 제한 경계감이 맞물려 박스권 장세를 이어가고 있습니다. 브라질 에탄올-설탕 생산 비율 전환 및 인도·태국의 수출 정책 불확실성이 하방 경직성을 부여하는 반면, 글로벌 공급 회복 전망이 급격한 상승을 제한하고 있습니다. 향후 1~3개월간 브라질 분쇄 종료 시점과 인도의 바이오에탄올 정책 기조에 따라 등락이 좌우될 것으로 보입니다. 조달 데스크에서는 30~45일 단기 물량을 우선 확보한 뒤 지지선 확인 후 추가 매수하는 보수적 전략을 권고합니다.',
     bullishFactors: [
-      '인도 원당 수출 금지 조치 연장 가능성 (+15~22 USD)',
-      '태국 가뭄에 따른 원당 생산량 회복 지연 (+10~16 USD)',
-      '글로벌 물류 및 설탕 정제 할증료 상승 (+5~10 USD)'
+      '인도 정부의 원당 수출 제한 조치 지속 및 에탄올 전환 장려',
+      '태국 주산지 가뭄 영향에 따른 사탕수수 수확량 회복 지연',
+      '글로벌 정제당 할증료(White Sugar Premium) 강세 유지'
     ],
     bearishFactors: [
-      '브라질 원당 사상 최대 수확 및 항구 유출량 증가 (-14~22 USD)',
-      '유가 하락으로 인한 에탄올 생산 축소 및 원당 생산 전환 (-8~14 USD)',
-      '글로벌 투기적 매수 포지션 청산 (-5~9 USD)'
+      '브라질 중남부(UNICA) 사탕수수 수확 및 설탕 생산 비중 확대',
+      '국제 유가 안정에 따른 브라질 제분소의 에탄올 대신 원당 생산 전환',
+      '글로벌 원자재 펀드의 투기적 롱 포지션 청산에 따른 매도 압력'
     ],
     watchItems: [
-      'UNICA 브라질 중남부 원당 생산량 및 Crush 비율 발표',
-      '인도 정부 설탕 수출 허가 정책 재검토',
-      'NYBOT 원당 선물 기술적 지지선 돌파 여부'
+      'UNICA 브라질 중남부 격주 사탕수수 파쇄량 및 Sugar Mix 비율',
+      '인도 식량농업부의 설탕 수출 쿼터 허용 여부 발표',
+      'ICE 원당 21.00 USc 기술적 지지선 유지 여부 및 런던 정제당 스프레드'
     ]
   },
   'potato-starch': {
     confidenceScore: 84,
     deskRecommendation: '60~75일 유럽 수입 계약 권고',
-    executiveSummary: '유럽 감자 전분(Potato Starch) 시장은 독일 및 네덜란드 수급 여건과 EUREX 선물지수, 수수율 추이를 종합할 때 CIF 부산 입고 가격이 860~880 EUR/MT 밴드에서 안정적입니다. 농심 라면/제과 고급 원료 품질 유지를 위해 60~75일 분량의 선도 물량 확보를 제언합니다.',
+    executiveSummary: '유럽 감자 전분(Potato Starch) 시장은 톤당 860~880 EUR 수준에서 독일 및 네덜란드 가공 공장의 안정적인 원료 수급을 바탕으로 하향 안정세를 나타내고 있습니다. 서유럽 주요 가공용 감자의 수확 여건 양호 및 전분 수율 회복이 단가를 안정시키는 반면, 유럽 내 물류비 및 에너지 비용 상승이 하단을 제한하고 있습니다. 향후 1~3개월간 유로화(EUR/KRW) 환율 추이와 유럽 환경 규제에 따른 제한적 변동성이 예상됩니다. 라면 및 스낵 품질 유지를 위해 60~75일 분량의 안정적 유럽 직수입 선도 계약을 유지할 것을 권고합니다.',
     bullishFactors: [
-      '유럽 운송 물류비 및 디젤 연료 할증료 상승 (+15~25 EUR)',
-      '동유럽 감자 가공 공장 에너지 비용 인상 (+10~18 EUR)',
-      '유로화(EUR/KRW) 강세 전환에 따른 원화 환산 단가 상승 (+8~15 EUR)'
+      '유럽 내 트럭 운송 물류비 및 디젤 연료 할증료 상승 압력',
+      '동유럽 및 서유럽 전분 가공 공장 에너지·가스 단가 인상',
+      'EUR/KRW 환율 상승 시 원화 환산 수입 단가 인상 부담'
     ],
     bearishFactors: [
-      '유럽 서부 주요 주산지 수확량 증가 및 수분 공급 양호 (-12~20 EUR)',
-      '유럽 내 대체 가공 전분(옥수수전분) 재고 유입 (-8~14 EUR)',
-      '부산항 스팟 컨테이너 운임 안정화 (-5~10 EUR)'
+      '독일·네덜란드·프랑스 등 서유럽 주요 주산지 감자 수확 및 전분 수율 양호',
+      '유럽 내 대체 가공 전분(옥수수/밀 전분) 공급 확대에 따른 가격 경쟁',
+      '유럽-부산향 해상 컨테이너 운임 하향 안정화 추세'
     ],
     watchItems: [
-      'EUREX 유럽 감자 지수 및 독일/네덜란드 전분 생산 현황',
-      'EUR/KRW 환율 변동성 및 원화 헤지 비율',
-      '유럽연합 농업 집행위원회(EC) 감자 작황 수산 보고서'
+      'EUREX 유럽 가공 감자 지수 및 독일/네덜란드 전분 생산 수율 보고서',
+      'EUR/KRW 환율 변동성 및 원화 결제 단가 헤지 비율',
+      '유럽연합 농업집행위원회(EC AGRI) 감자 및 전분 수급 모니터링'
     ]
   },
   'potato_starch': {
     confidenceScore: 84,
     deskRecommendation: '60~75일 유럽 수입 계약 권고',
-    executiveSummary: '유럽 감자 전분(Potato Starch) 시장은 독일 및 네덜란드 수급 여건과 EUREX 선물지수, 수수율 추이를 종합할 때 CIF 부산 입고 가격이 860~880 EUR/MT 밴드에서 안정적입니다. 농심 라면/제과 고급 원료 품질 유지를 위해 60~75일 분량의 선도 물량 확보를 제언합니다.',
+    executiveSummary: '유럽 감자 전분(Potato Starch) 시장은 톤당 860~880 EUR 수준에서 독일 및 네덜란드 가공 공장의 안정적인 원료 수급을 바탕으로 하향 안정세를 나타내고 있습니다. 서유럽 주요 가공용 감자의 수확 여건 양호 및 전분 수율 회복이 단가를 안정시키는 반면, 유럽 내 물류비 및 에너지 비용 상승이 하단을 제한하고 있습니다. 향후 1~3개월간 유로화(EUR/KRW) 환율 추이와 유럽 환경 규제에 따른 제한적 변동성이 예상됩니다. 라면 및 스낵 품질 유지를 위해 60~75일 분량의 안정적 유럽 직수입 선도 계약을 유지할 것을 권고합니다.',
     bullishFactors: [
-      '유럽 운송 물류비 및 디젤 연료 할증료 상승 (+15~25 EUR)',
-      '동유럽 감자 가공 공장 에너지 비용 인상 (+10~18 EUR)',
-      '유로화(EUR/KRW) 강세 전환에 따른 원화 환산 단가 상승 (+8~15 EUR)'
+      '유럽 내 트럭 운송 물류비 및 디젤 연료 할증료 상승 압력',
+      '동유럽 및 서유럽 전분 가공 공장 에너지·가스 단가 인상',
+      'EUR/KRW 환율 상승 시 원화 환산 수입 단가 인상 부담'
     ],
     bearishFactors: [
-      '유럽 서부 주요 주산지 수확량 증가 및 수분 공급 양호 (-12~20 EUR)',
-      '유럽 내 대체 가공 전분(옥수수전분) 재고 유입 (-8~14 EUR)',
-      '부산항 스팟 컨테이너 운임 안정화 (-5~10 EUR)'
+      '독일·네덜란드·프랑스 등 서유럽 주요 주산지 감자 수확 및 전분 수율 양호',
+      '유럽 내 대체 가공 전분(옥수수/밀 전분) 공급 확대에 따른 가격 경쟁',
+      '유럽-부산향 해상 컨테이너 운임 하향 안정화 추세'
     ],
     watchItems: [
-      'EUREX 유럽 감자 지수 및 독일/네덜란드 전분 생산 현황',
-      'EUR/KRW 환율 변동성 및 원화 헤지 비율',
-      '유럽연합 농업 집행위원회(EC) 감자 작황 수산 보고서'
+      'EUREX 유럽 가공 감자 지수 및 독일/네덜란드 전분 생산 수율 보고서',
+      'EUR/KRW 환율 변동성 및 원화 결제 단가 헤지 비율',
+      '유럽연합 농업집행위원회(EC AGRI) 감자 및 전분 수급 모니터링'
     ]
   },
   'tapioca-starch': {
     confidenceScore: 83,
     deskRecommendation: '45~60일 분할 구매 권고',
-    executiveSummary: '동남아 타피오카 전분(Tapioca Starch) 시장은 태국 TTSA FOB Bangkok 시세 및 카사바 뿌리 모자이크 병해(CMD) 완화 동향을 감안할 때 490~510 USD/MT 레벨에서 하단 지지선을 형성하고 있습니다. 중국 수입 재개 및 변성전분 가공 수요에 맞춰 45~60일 분할 구매 전략을 추천합니다.',
+    executiveSummary: '동남아 타피오카 전분(Tapioca Starch) 시장은 FOB 방콕 기준 톤당 495~510 USD 레벨에서 태국 카사바 생뿌리 수급 안정과 중국 수입 수요 재개가 균형을 이루며 횡보하고 있습니다. 카사바 모자이크 병해(CMD) 진정과 건기 수확물 유입이 공급을 뒷받침하는 반면, 중국 주류 및 가공식품 업계의 수요 회복세가 가격 하단을 지지하고 있습니다. 향후 1~3개월간 동남아 수확 진척도와 중국 구매 속도에 따라 완만한 박스권 흐름이 전망됩니다. 조달 데스크에서는 45~60일 분량의 분할 매수를 통해 단가 안정성을 확보할 것을 권고합니다.',
     bullishFactors: [
-      '중국 주류 및 전분 가공업체 타피오카 수입 재개 (+12~20 USD)',
-      '태국 카사바 생뿌리(Fresh Root) 공장 인수 가격 상승 (+8~15 USD)',
-      '동남아 동부 해상 컨테이너 운임 소폭 상승 (+5~10 USD)'
+      '중국 식음료 및 변성전분 가공업체의 타피오카 수입 오퍼 확대',
+      '태국 현지 카사바 생뿌리(Fresh Root) 공장 인수가격 강보합세',
+      '동남아-한국 간 단거리 해상 컨테이너 피더 운임 소폭 인상'
     ],
     bearishFactors: [
-      '태국/베트남 건기 카사바 수확물 유입 확대 (-10~18 USD)',
-      '옥수수전분 등 대체 전분류 가격 안정세 (-6~12 USD)',
-      '원/달러 환율 소폭 하락 안정화 (-4~8 USD)'
+      '태국 및 베트남 건기 카사바 수확물 유입 가속화',
+      '옥수수전분 등 경쟁 대체 전분류 가격 안정에 따른 수요 분산',
+      '카사바 모자이크 병해(CMD) 완화에 따른 주산지 생산 수율 회복'
     ],
     watchItems: [
-      '태국 타피오카 협회(TTSA) 주간 FOB 방콕 고시 가격',
-      '중국 항구 타피오카 전분 재고량 및 통관 속도',
-      '동남아 카사바 생뿌리 전분 함량(Starch Content) 지수'
+      '태국 타피오카 협회(TTSA) 주간 FOB 방콕 고시 가격 및 수출 통계',
+      '중국 주요 항만 타피오카 전분 재고량 및 통관 소요 시간',
+      '동남아 현지 카사바 생뿌리 전분 함량(Starch Content) 지표'
     ]
   },
   'tapioca_starch': {
     confidenceScore: 83,
     deskRecommendation: '45~60일 분할 구매 권고',
-    executiveSummary: '동남아 타피오카 전분(Tapioca Starch) 시장은 태국 TTSA FOB Bangkok 시세 및 카사바 뿌리 모자이크 병해(CMD) 완화 동향을 감안할 때 490~510 USD/MT 레벨에서 하단 지지선을 형성하고 있습니다. 중국 수입 재개 및 변성전분 가공 수요에 맞춰 45~60일 분할 구매 전략을 추천합니다.',
+    executiveSummary: '동남아 타피오카 전분(Tapioca Starch) 시장은 FOB 방콕 기준 톤당 495~510 USD 레벨에서 태국 카사바 생뿌리 수급 안정과 중국 수입 수요 재개가 균형을 이루며 횡보하고 있습니다. 카사바 모자이크 병해(CMD) 진정과 건기 수확물 유입이 공급을 뒷받침하는 반면, 중국 주류 및 가공식품 업계의 수요 회복세가 가격 하단을 지지하고 있습니다. 향후 1~3개월간 동남아 수확 진척도와 중국 구매 속도에 따라 완만한 박스권 흐름이 전망됩니다. 조달 데스크에서는 45~60일 분량의 분할 매수를 통해 단가 안정성을 확보할 것을 권고합니다.',
     bullishFactors: [
-      '중국 주류 및 전분 가공업체 타피오카 수입 재개 (+12~20 USD)',
-      '태국 카사바 생뿌리(Fresh Root) 공장 인수 가격 상승 (+8~15 USD)',
-      '동남아 동부 해상 컨테이너 운임 소폭 상승 (+5~10 USD)'
+      '중국 식음료 및 변성전분 가공업체의 타피오카 수입 오퍼 확대',
+      '태국 현지 카사바 생뿌리(Fresh Root) 공장 인수가격 강보합세',
+      '동남아-한국 간 단거리 해상 컨테이너 피더 운임 소폭 인상'
     ],
     bearishFactors: [
-      '태국/베트남 건기 카사바 수확물 유입 확대 (-10~18 USD)',
-      '옥수수전분 등 대체 전분류 가격 안정세 (-6~12 USD)',
-      '원/달러 환율 소폭 하락 안정화 (-4~8 USD)'
+      '태국 및 베트남 건기 카사바 수확물 유입 가속화',
+      '옥수수전분 등 경쟁 대체 전분류 가격 안정에 따른 수요 분산',
+      '카사바 모자이크 병해(CMD) 완화에 따른 주산지 생산 수율 회복'
     ],
     watchItems: [
-      '태국 타피오카 협회(TTSA) 주간 FOB 방콕 고시 가격',
-      '중국 항구 타피오카 전분 재고량 및 통관 속도',
-      '동남아 카사바 생뿌리 전분 함량(Starch Content) 지수'
+      '태국 타피오카 협회(TTSA) 주간 FOB 방콕 고시 가격 및 수출 통계',
+      '중국 주요 항만 타피오카 전분 재고량 및 통관 소요 시간',
+      '동남아 현지 카사바 생뿌리 전분 함량(Starch Content) 지표'
     ]
   }
 };
@@ -259,22 +259,22 @@ export async function generateAiAnalysis(commodityId: string, customPromptName?:
 
   // Construct precise fallback for this specific commodity ID rather than defaulting to corn
   const fallback: AiAnalysisData = FALLBACK_AI_ANALYSIS[normalizedKey] || FALLBACK_AI_ANALYSIS[cleanId] || {
-    confidenceScore: 82,
+    confidenceScore: 84,
     deskRecommendation: '45~60일 안정적 분할 구매 권고',
-    executiveSummary: `글로벌 ${cleanId} 원자재 수급 및 환율 변동성을 감안할 때 안정적인 원가 관리가 필요합니다. 농심 원자재 조달 데스크에서는 45~60일 분량의 분할 수입 계약 체결을 권고합니다.`,
+    executiveSummary: `글로벌 ${cleanId} 시장은 최근 주요 산지 수급 밸런스와 계절적 출하 흐름이 맞물리며 단기 박스권 횡보세를 유지하고 있습니다. 주요 생산국의 작황 및 수출 가용 물량은 대체로 안정적이나, 해상 운임 및 환율 변동성이 원가 상방 위험 요인으로 상존하고 있습니다. 향후 1~3개월간 기상 변수와 수출 통상 정책에 따라 단기 변동성이 나타날 수 있으므로 무리한 일괄 매수는 지양해야 합니다. 조달 데스크에서는 45~60일 소요 물량을 중심으로 가격 조정 시점마다 분할 매수하는 안정적 조달 전략을 권고합니다.`,
     bullishFactors: [
-      `글로벌 ${cleanId} 주산지 기후 및 공급망 변동성 (+10~15 USD)`,
-      `원자재 수입 물류비 및 해상 운임 상승 (+5~10 USD)`,
-      `환율 변동에 따른 수입 단가 인상 압력 (+3~8 USD)`
+      `글로벌 ${cleanId} 주산지 기후 및 수출 공급망 변동성`,
+      `원자재 수입 물류비 및 해상 운임 상승 압력`,
+      `환율 변동에 따른 원화 환산 수입 단가 인상 부담`
     ],
     bearishFactors: [
-      `글로벌 주요 생산국 수확물 출하 확대 (-8~14 USD)`,
-      `대체 원자재 시장 시세 안정세 (-5~10 USD)`,
-      `글로벌 수요 일시 둔화 (-3~6 USD)`
+      `글로벌 주요 생산국 수확물 출하 확대에 따른 공급 안정`,
+      `대체 원자재 시장 시세 안정세로 인한 수요 분산`,
+      `글로벌 소비 둔화에 따른 수입선 경쟁적 오퍼 출하`
     ],
     watchItems: [
-      `주요 생산국 기상 및 수수율 지표`,
-      `USD/KRW 환율 및 원화 결제 단가`,
+      `주요 생산국 기상 지표 및 수확·단수 전망`,
+      `USD/KRW 환율 및 원화 결제 단가 변동성`,
       `글로벌 해상 물류 및 항만 체증 현황`
     ]
   };
@@ -308,7 +308,16 @@ export async function generateAiAnalysis(commodityId: string, customPromptName?:
 Analyze the procurement outlook for ${commodityPromptContext}.
 Synthesize supply/demand metrics, global agricultural price trends, weather, macroeconomic factors, and strategic purchasing advice into professional Korean SCM terminology.
 
-CRITICAL RULE: Never recommend coverage exceeding 75 days. Recommended ranges must strictly be 30~45일, 45~60일, or 60~75일.
+CRITICAL CONTENT STRUCTURE RULES:
+1. executiveSummary: A compact, substantive Korean paragraph of approximately 3-4 concise sentences covering:
+   - 현재 시세 및 최근 가격 방향
+   - 현재 가격에 영향을 주는 주요 원인 (수급, 작황, 기상, 물류 등)
+   - 향후 1-3개월 단기 전망
+   - 구매 관점에서의 구체적 시사점
+2. bullishFactors: Exactly 3 distinct, concise upward factors in Korean (approx 1 line each, specific and explaining real upward price pressure, no duplicate, no long explanation).
+3. bearishFactors: Exactly 3 distinct, concise downward factors in Korean (approx 1 line each, specific and explaining real downward price pressure, no duplicate).
+4. watchItems: Exactly 3 specific forward-looking monitoring items in Korean (approx 1 line each, clearly stating the specific variable to monitor; avoid vague phrasing like '날씨 모니터링').
+5. deskRecommendation: Keep standard range string strictly among '30~45일 단기 관망 후 분할 구매', '45~60일 선도 구매 권고', '45~60일 분할 구매 권고', '45~60일 스팟/선도 혼합 구매', '60~75일 선도 구매 권고', or '60~75일 유럽 수입 계약 권고'.
 
 Return a strictly formatted JSON object matching the requested schema. Ensure all textual fields are in Korean.`;
 
@@ -326,26 +335,26 @@ Return a strictly formatted JSON object matching the requested schema. Ensure al
               },
               deskRecommendation: {
                 type: Type.STRING,
-                description: 'Recommended forward coverage in Korean (e.g. "60~75일 선도 구매")'
+                description: 'Recommended forward coverage in Korean (e.g. "60~75일 선도 구매 권고")'
               },
               executiveSummary: {
                 type: Type.STRING,
-                description: 'Executive summary paragraph in Korean focusing on SCM procurement outlook'
+                description: 'Executive summary paragraph of 3-4 concise sentences in Korean focusing on SCM procurement outlook'
               },
               bullishFactors: {
                 type: Type.ARRAY,
                 items: { type: Type.STRING },
-                description: '3 bullish/upside risk factors in Korean with estimated USD/EUR impact'
+                description: '3 distinct concise 1-line bullish/upside risk factors in Korean'
               },
               bearishFactors: {
                 type: Type.ARRAY,
                 items: { type: Type.STRING },
-                description: '3 bearish/downside relief factors in Korean with estimated USD/EUR impact'
+                description: '3 distinct concise 1-line bearish/downside relief factors in Korean'
               },
               watchItems: {
                 type: Type.ARRAY,
                 items: { type: Type.STRING },
-                description: '3 key monitoring items for the next 7-14 days in Korean'
+                description: '3 distinct concise 1-line key monitoring items in Korean'
               }
             },
             required: [

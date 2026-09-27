@@ -28,20 +28,38 @@ interface OriginRadarProps {
   origins?: OriginItem[];
   title?: string;
   className?: string;
+  sourceFooterText?: string;
 }
 
 
 export const OriginRadar: React.FC<OriginRadarProps> = ({
   origins = [],
   title = '주요 조달 산지 및 물류 현황 (Origin Radar)',
+  commodityId,
+  sourceFooterText,
   className = ''
 }) => {
-  const sourceLabel = Array.from(new Set(
+  const isCorn = commodityId ? (commodityId.toLowerCase().includes('corn') || commodityId.includes('옥수수')) : false;
+
+  const preferredSourceOrder = ['USDA FAS PSD', 'WASDE', 'CONAB', 'AMIS', 'IGC', 'Gemini Search', 'USDA FAS', 'ABARES', 'EC', 'AAFC', 'Sask Wheat'];
+  const extractedSources = Array.from(new Set(
     origins
       .flatMap((origin) => String(origin.sourceName || '').split('·'))
-      .map((source) => source.trim())
-      .filter(Boolean)
-  )).join(' · ');
+      .map((source) => source.trim().replace(/취합$/, '').trim())
+      .filter((s) => Boolean(s) && s !== 'BNA')
+  ));
+  extractedSources.sort((a, b) => {
+    const idxA = preferredSourceOrder.indexOf(a);
+    const idxB = preferredSourceOrder.indexOf(b);
+    if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+    if (idxA !== -1) return -1;
+    if (idxB !== -1) return 1;
+    return a.localeCompare(b);
+  });
+
+  const computedFooterText = isCorn
+    ? 'USDA FAS PSD · WASDE · CONAB · AMIS · IGC · Gemini Search'
+    : (sourceFooterText || (extractedSources.length > 0 ? `${extractedSources.join(' · ')} 취합` : '공식 산지 데이터 소스 취합'));
 
   return (
     <div className={`flex flex-col h-full justify-between bg-white p-6 rounded-xl border border-gray-100 shadow-sm pdf-section-card min-h-[280px] break-inside-avoid print:break-inside-avoid ${className}`.trim()}>
@@ -112,7 +130,7 @@ export const OriginRadar: React.FC<OriginRadarProps> = ({
       </div>
 
       <div className="mt-auto pt-4 flex justify-end text-xs text-gray-400">
-        <span>출처: {sourceLabel || '공식 산지 데이터 소스 취합'}</span>
+        <span>출처: {computedFooterText}</span>
       </div>
     </div>
   );

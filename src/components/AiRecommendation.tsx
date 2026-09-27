@@ -63,9 +63,6 @@ export default function AiRecommendation({
   errorMessage = '',
   className = ''
 }: AiRecommendationProps) {
-  // Determine dynamic currency impact header (+USD Impact / -USD Impact vs +EUR Impact / -EUR Impact)
-  const isEur = currency === 'EUR' || (commodityId ? (commodityId.toLowerCase().includes('potato') || commodityId.includes('감자')) : false);
-  const impactCurrency = isEur ? 'EUR' : 'USD';
 
   // Determine dynamic footer source:
   // Grains & Oilseeds -> Google Gemini AI · Refinitiv · USDA FAS
@@ -203,7 +200,6 @@ export default function AiRecommendation({
           <div className="border border-slate-100 rounded-lg p-3.5">
             <div className="flex items-center justify-between mb-3 border-b border-slate-100 pb-2">
               <h3 className="text-xs font-bold text-[#059669]">상승 요인 <span className="font-normal opacity-80">(BULLISH FACTORS)</span></h3>
-              <span className="text-[11px] font-mono text-[#059669] font-semibold">+{impactCurrency} Impact</span>
             </div>
             <ul className="space-y-2 text-[12px] text-slate-600 font-sans">
               {(bullishFactors.length > 0 ? bullishFactors : ['검증된 최신 상승 요인 없음']).map((item, idx) => (
@@ -219,7 +215,6 @@ export default function AiRecommendation({
           <div className="border border-slate-100 rounded-lg p-3.5">
             <div className="flex items-center justify-between mb-3 border-b border-slate-100 pb-2">
               <h3 className="text-xs font-bold text-rose-600">하락 요인 <span className="font-normal opacity-80">(BEARISH FACTORS)</span></h3>
-              <span className="text-[11px] font-mono text-rose-500">-{impactCurrency} Impact</span>
             </div>
             <ul className="space-y-2 text-[12px] text-slate-600 font-sans">
               {(bearishFactors.length > 0 ? bearishFactors : ['검증된 최신 하락 요인 없음']).map((item, idx) => (

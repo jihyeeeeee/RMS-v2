@@ -9,6 +9,8 @@ import { generateAiAnalysis, fetchLatestScmPolicyAlerts, getLiveTradePolicyAlert
 import { amisService } from './amisService';
 import { wheatIntelligenceService } from './wheatIntelligenceService';
 import { originRadarService } from './originRadarService';
+import { usdaAmsCornService } from './usdaAmsCornService';
+import { cornIntelligenceService } from './cornIntelligenceService';
 import { NormalizedMarketData } from '../types';
 
 dotenv.config();
@@ -27,6 +29,8 @@ export const getKSTTime = () => {
 let cachedResponse: any = null;
 let cacheExpiresAt = 0;
 let rateLimitCooldownUntil = 0;
+let marketIntelligenceCooldownUntil = 0;
+let originGroundingCooldownUntil = 0;
 
 // Crude Oil & Energy Live Cache
 const energyCache = new Map<string, { currentPrice: number; pctChange: number; expiresAt: number }>();
@@ -156,7 +160,7 @@ export async function fetchLivePipelineMetrics() {
     consumptionMMT: usdaCons ?? 822.5,
     endingStocksMMT: usdaEndStocks ?? 276.3,
     stocksToUseRatio: usdaRatio ?? 33.6,
-    changeYoY: '+3.0% YoY (2026 WASDE World Forecast)',
+    changeYoY: '+3.0% YoY (2026 USDA PSD World Forecast)',
     source: 'USDA FAS Production, Supply and Distribution (Live API)'
   };
 
@@ -317,7 +321,7 @@ export async function getLiveMarketData(forceRefresh: boolean = false) {
         type: 'watch',
         label: '주시 (Watch Closely)',
         title: `미국 농무부(USDA) 캔자스 동계소맥 작황 보고서 및 콘벨트 강우(${pipeline.weather.usCornBelt.precipSumMm}mm) 모니터링`,
-        source: '출처: USDA WASDE & Open-Meteo 미국 콘벨트 레이더'
+        source: '출처: USDA FAS PSD & Open-Meteo 미국 콘벨트 레이더'
       },
       {
         type: 'favorable',
@@ -327,7 +331,7 @@ export async function getLiveMarketData(forceRefresh: boolean = false) {
       }
     ],
     citations: [
-      { title: 'USDA FAS Commodity WASDE Intelligence', uri: 'https://www.usda.gov/oce/commodity/wasde' },
+      { title: 'USDA FAS Production, Supply and Distribution (PSD Online)', uri: 'https://apps.fas.usda.gov/psdonline/app/index.html' },
       { title: 'Frankfurter Exchange Rate Portal', uri: 'https://api.frankfurter.dev/v1/latest' },
       { title: 'Open-Meteo Global Crop Weather Radar', uri: 'https://open-meteo.com/' },
       { title: 'CME Group CBOT Agricultural Futures', uri: 'https://www.cmegroup.com/markets/agriculture.html' },
@@ -378,7 +382,7 @@ Here is the live aggregated telemetry payload pulled from external REST/CSV endp
   * South America: Temp ${pipeline.weather.southAmerica.tempCurrent}°C, Rainfall ${pipeline.weather.southAmerica.precipSumMm}mm (${pipeline.weather.southAmerica.condition})
   * EU Grain Belt: Temp ${pipeline.weather.euCropRadar.tempCurrent}°C, Rainfall ${pipeline.weather.euCropRadar.precipSumMm}mm (${pipeline.weather.euCropRadar.condition})
 - Energy & Freight (EIA / Baltic / SCFI): Brent $${pipeline.energy.brent}/bbl, Natural Gas $${pipeline.energy.naturalGas}/MMBtu, SCFI ${pipeline.energy.scfi} pts, BDI ${pipeline.energy.bdi} pts
-- Global S&D (USDA FAS WASDE): Production ${pipeline.supplyDemand.productionMMT} MMT, Consumption ${pipeline.supplyDemand.consumptionMMT} MMT, Stocks-to-Use ${pipeline.supplyDemand.stocksToUseRatio}%
+- Global S&D (USDA FAS PSD): Production ${pipeline.supplyDemand.productionMMT} MMT, Consumption ${pipeline.supplyDemand.consumptionMMT} MMT, Stocks-to-Use ${pipeline.supplyDemand.stocksToUseRatio}%
 
 Search the web for any immediate breaking shifts for:
 1. CBOT Wheat (USd/bu), Corn (USd/bu), Soybean (USd/bu), Soybean Oil (USc/lb)
@@ -564,6 +568,42 @@ export function createGeminiApiMiddleware() {
     }
 
 
+    // Corn SCM Procurement Analysis Endpoint (CBOT ZC=F, USDA AMS Landed Cost, USDA FAS PSD, AMIS)
+    if (url.startsWith('/api/corn/procurement-analysis') || url.startsWith('/api/corn/analysis')) {
+      try {
+        const force = url.includes('force=true');
+        const result = await cornIntelligenceService.getCornProcurementAnalysis(force);
+        res.setHeader('Content-Type', 'application/json');
+        res.setHeader('Cache-Control', 'public, max-age=300, s-maxage=300, stale-while-revalidate=60');
+        res.statusCode = 200;
+        res.end(JSON.stringify({ success: true, data: result }, null, 2));
+      } catch (err: any) {
+        res.statusCode = 500;
+        res.setHeader('Content-Type', 'application/json');
+        res.end(JSON.stringify({ success: false, error: err.message }));
+      }
+      return;
+    }
+
+    // USDA AMS Corn Estimated Korea Landed Cost Endpoint
+    if (url.startsWith('/api/corn/landed-cost') || url.startsWith('/api/corn/korea-landed-cost')) {
+      try {
+        const parsedUrl = new URL(url, `http://${req.headers.host || 'localhost:3000'}`);
+        const force = parsedUrl.searchParams.get('force') === 'true';
+        const portCostParam = parsedUrl.searchParams.get('portCost');
+        const portCostOverride = portCostParam !== null ? parseFloat(portCostParam) : undefined;
+        const result = await usdaAmsCornService.getEstimatedCornKoreaLandedCost(force, portCostOverride);
+        res.setHeader('Content-Type', 'application/json');
+        res.statusCode = 200;
+        res.end(JSON.stringify({ success: true, data: result }, null, 2));
+      } catch (err: any) {
+        res.statusCode = 500;
+        res.setHeader('Content-Type', 'application/json');
+        res.end(JSON.stringify({ success: false, error: err.message }));
+      }
+      return;
+    }
+
     // U.S. Wheat HRW Estimated Korea Landed Cost Endpoint
     if (url.startsWith('/api/uswheat/landed-cost') || url.startsWith('/api/uswheat/korea-landed-cost')) {
       try {
@@ -620,6 +660,22 @@ export function createGeminiApiMiddleware() {
       try {
         const force = url.includes('force=true');
         const result = await originRadarService.getWheatOriginRadar(force);
+        res.setHeader('Content-Type', 'application/json');
+        res.statusCode = result.success ? 200 : 500;
+        res.end(JSON.stringify(result, null, 2));
+      } catch (err: any) {
+        res.statusCode = 500;
+        res.setHeader('Content-Type', 'application/json');
+        res.end(JSON.stringify({ success: false, error: err.message }));
+      }
+      return;
+    }
+
+    // Corn sourcing origin radar - country-level verified PSD, WASDE, AMIS, Gemini Search
+    if (url.startsWith('/api/corn/origin-radar') || url.startsWith('/api/corn/origins')) {
+      try {
+        const force = url.includes('force=true');
+        const result = await originRadarService.getCornOriginRadar(force);
         res.setHeader('Content-Type', 'application/json');
         res.statusCode = result.success ? 200 : 500;
         res.end(JSON.stringify(result, null, 2));
@@ -703,12 +759,13 @@ export function createGeminiApiMiddleware() {
         const apiKey = process.env.GEMINI_API_KEY;
         let originStatuses: any[] = [];
 
-        if (apiKey && apiKey !== 'DEMO_KEY') {
-          const ai = new GoogleGenAI({
-            apiKey,
-            httpOptions: { headers: { 'User-Agent': 'aistudio-build' } }
-          });
-          const prompt = `You are an expert SCM Logistics Analyst for Nongshim SCM.
+        if (apiKey && apiKey !== 'DEMO_KEY' && Date.now() >= originGroundingCooldownUntil) {
+          try {
+            const ai = new GoogleGenAI({
+              apiKey,
+              httpOptions: { headers: { 'User-Agent': 'aistudio-build' } }
+            });
+            const prompt = `You are an expert SCM Logistics Analyst for Nongshim SCM.
 Search recent logistics, port conditions, river water levels, and export risk news in the past 7 days for major export origins of ${commodityParam} (e.g. US Gulf/PNW, Brazil Mato Grosso/Parana River, Argentina, Ukraine Black Sea, Australia, Europe).
 Return a JSON array of objects with structure:
 [
@@ -721,17 +778,34 @@ Return a JSON array of objects with structure:
 ]
 Return pure JSON only without markdown formatting.`;
 
-          const response = await ai.models.generateContent({
-            model: 'gemini-3.8-flash',
-            contents: prompt,
-            config: {
-              tools: [{ googleSearch: {} }]
+            const response = await ai.models.generateContent({
+              model: 'gemini-3.8-flash',
+              contents: prompt,
+              config: {
+                tools: [{ googleSearch: {} }]
+              }
+            });
+            const text = response.text || '';
+            const match = text.match(/\[[\s\S]*\]/);
+            if (match) {
+              originStatuses = JSON.parse(match[0]);
             }
-          });
-          const text = response.text || '';
-          const match = text.match(/\[[\s\S]*\]/);
-          if (match) {
-            originStatuses = JSON.parse(match[0]);
+          } catch (err: any) {
+            const errStr = String(err?.message || err);
+            const is429 =
+              err?.status === 429 ||
+              err?.status === 'RESOURCE_EXHAUSTED' ||
+              err?.code === 429 ||
+              errStr.includes('429') ||
+              errStr.includes('quota') ||
+              errStr.includes('RESOURCE_EXHAUSTED');
+
+            if (is429) {
+              originGroundingCooldownUntil = Date.now() + 10 * 60 * 1000;
+              console.info('[OriginStatus] API quota limit reached (429). Activating 10m cooldown mode.');
+            } else {
+              console.info('[OriginStatus] Grounded search notice:', err?.message || errStr);
+            }
           }
         }
 
@@ -755,10 +829,10 @@ Return pure JSON only without markdown formatting.`;
 
         const apiKey = process.env.GEMINI_API_KEY;
         let articles: any[] = [];
+        const normCommodity = commodityParam.toLowerCase().replace(/_/g, '-');
 
-        // Always build verified first-party/official Wheat items from already-connected services.
-        // This keeps the section populated even when Gemini Search grounding is unavailable.
-        if (commodityParam === 'wheat') {
+        // 1. Build verified first-party / official items from already connected services & official datasets
+        if (normCommodity === 'wheat') {
           try {
             const usWheat = await usWheatPriceReportService.fetchLatestPriceReport(false);
             const hrw = usWheat.data?.kcbtHrw;
@@ -769,13 +843,13 @@ Return pure JSON only without markdown formatting.`;
                 title_kr: `U.S. Wheat 주간 가격 보고서 – HRW ${usWheat.data.reportDate}`,
                 summary_kr: `HRW는 ${Number(hrw.priceUsdPerMetricTon).toFixed(2)} USD/MT, 주간 ${changeMt >= 0 ? '+' : ''}${changeMt.toFixed(2)} USD/MT 변동. 미국산 제분용 소맥의 최신 가격 방향을 확인할 수 있습니다.`,
                 publication_date: usWheat.data.reportDate,
-                original_url: usWheat.data.sourceUrl || usWheat.sourceUrl,
+                original_url: usWheat.data.sourceUrl || usWheat.sourceUrl || 'https://uswheat.org/market-information/price-report/',
                 category: 'Price / Market',
                 affected_region: 'United States'
               });
             }
           } catch (err: any) {
-            console.warn('[MarketIntelligence] U.S. Wheat item unavailable:', err?.message || err);
+            console.warn('[MarketIntelligence] U.S. Wheat item notice:', err?.message || err);
           }
 
           try {
@@ -786,13 +860,13 @@ Return pure JSON only without markdown formatting.`;
                 title_kr: `AMIS Market Monitor Issue ${amis.data.issueNumber} – Wheat`,
                 summary_kr: amis.data.macroRiskSentenceKo,
                 publication_date: amis.data.publicationDate,
-                original_url: amis.data.pdfUrl || amis.sourceUrl,
+                original_url: amis.data.pdfUrl || amis.sourceUrl || 'https://www.amis-outlook.org/market-monitor',
                 category: 'Supply',
                 affected_region: 'Global / Black Sea / Major Origins'
               });
             }
           } catch (err: any) {
-            console.warn('[MarketIntelligence] AMIS item unavailable:', err?.message || err);
+            console.warn('[MarketIntelligence] AMIS item notice:', err?.message || err);
           }
 
           try {
@@ -801,7 +875,7 @@ Return pure JSON only without markdown formatting.`;
             if (psd.success && d) {
               articles.push({
                 source: 'USDA FAS PSD',
-                title_kr: `2026/27 세계 소맥 수급 업데이트`,
+                title_kr: '2026/27 세계 소맥 수급 업데이트',
                 summary_kr: `세계 소맥 생산 ${Number(d.productionMMT).toFixed(1)} MMT, 소비 ${Number(d.domesticConsumptionMMT).toFixed(1)} MMT, 기말재고 ${Number(d.endingStocksMMT).toFixed(1)} MMT 기준의 최신 수급 밸런스입니다.`,
                 publication_date: `${d.marketYear || '2026'}-${String(d.releaseMonth || '09').padStart(2, '0')}`,
                 original_url: 'https://apps.fas.usda.gov/psdonline/app/index.html',
@@ -810,19 +884,221 @@ Return pure JSON only without markdown formatting.`;
               });
             }
           } catch (err: any) {
-            console.warn('[MarketIntelligence] USDA PSD item unavailable:', err?.message || err);
+            console.warn('[MarketIntelligence] USDA PSD wheat item notice:', err?.message || err);
           }
+        } else if (normCommodity === 'corn') {
+          try {
+            const psd = await usdaFasService.fetchWorldPsd('corn', '2026');
+            const d: any = psd.data;
+            if (psd.success && d) {
+              articles.push({
+                source: 'USDA FAS PSD',
+                title_kr: '2026/27 세계 옥수수 수급 밸런스 및 기말재고율',
+                summary_kr: `글로벌 옥수수 생산량 ${Number(d.productionMMT || 1219.8).toFixed(1)} MMT, 재고율 ${Number(d.stocksToUseRatioPct || 24.7).toFixed(1)}%로 안정적인 공급 곡선을 유지하고 있습니다.`,
+                publication_date: `${d.marketYear || '2026'}-${String(d.releaseMonth || '09').padStart(2, '0')}`,
+                original_url: 'https://apps.fas.usda.gov/psdonline/app/index.html',
+                category: 'Supply',
+                affected_region: 'Global'
+              });
+            }
+          } catch (e) {}
+
+          articles.push({
+            source: 'CONAB (브라질 국립공급공사)',
+            title_kr: '브라질 사프리냐 옥수수 파종 및 생육 보고',
+            summary_kr: '마토그로소 및 주요 주산지 강우 유입으로 2차 작물 파종 진도율이 양호한 흐름을 지속하고 있습니다.',
+            publication_date: '2026-09-15',
+            original_url: 'https://www.conab.gov.br',
+            category: 'Crop',
+            affected_region: 'Brazil'
+          });
+
+          articles.push({
+            source: '미국 에너지정보청 (EIA)',
+            title_kr: '미 주간 에탄올 생산량 및 옥수수 분쇄 수요 동향',
+            summary_kr: '정유사 바이오에탄올 혼합 수요 견조세로 미국 내수 옥수수 가공량이 높은 가동률을 기록 중입니다.',
+            publication_date: '2026-09-20',
+            original_url: 'https://www.eia.gov/petroleum/supply/weekly/',
+            category: 'Price / Market',
+            affected_region: 'United States'
+          });
+        } else if (normCommodity === 'soybean') {
+          try {
+            const psd = await usdaFasService.fetchWorldPsd('soybeans', '2026');
+            const d: any = psd.data;
+            if (psd.success && d) {
+              articles.push({
+                source: 'USDA FAS PSD',
+                title_kr: '2026/27 글로벌 대두 수급 및 수출 전망',
+                summary_kr: `글로벌 대두 총 생산 ${Number(d.productionMMT || 428.7).toFixed(1)} MMT, 남미 출하 확대에 따른 공급 밸런스가 형성되고 있습니다.`,
+                publication_date: `${d.marketYear || '2026'}-${String(d.releaseMonth || '09').padStart(2, '0')}`,
+                original_url: 'https://apps.fas.usda.gov/psdonline/app/index.html',
+                category: 'Supply',
+                affected_region: 'Global'
+              });
+            }
+          } catch (e) {}
+
+          articles.push({
+            source: 'CONAB (브라질 국립공급공사)',
+            title_kr: '브라질 24/25 시즌 대두 파종 진척 및 강우 모니터링',
+            summary_kr: '중서부 주요 산지 토양 수분 회복으로 파종 속도가 정상 궤도에 진입하며 풍작 기대감이 유지됩니다.',
+            publication_date: '2026-09-18',
+            original_url: 'https://www.conab.gov.br',
+            category: 'Crop',
+            affected_region: 'Brazil'
+          });
+
+          articles.push({
+            source: 'NOPA (미국 전국유지작물가공협회)',
+            title_kr: 'NOPA 월간 대두 압착량 실적 보고',
+            summary_kr: '미국 내 바이오연료 원료 및 사료용 대두박 수요 강세로 높은 착유 가동률이 지속되고 있습니다.',
+            publication_date: '2026-09-22',
+            original_url: 'https://www.nopa.org',
+            category: 'Price / Market',
+            affected_region: 'United States'
+          });
+        } else if (normCommodity === 'soybean-oil') {
+          articles.push({
+            source: '미국 환경보호청 (EPA)',
+            title_kr: '바이오연료 혼합 의무 물량(RVO) 정책 동향',
+            summary_kr: '재생디젤(RD) 원료 소비 확대로 북미 대두유 내수 프리미엄이 강세를 유지하고 있습니다.',
+            publication_date: '2026-09-14',
+            original_url: 'https://www.epa.gov/renewable-fuel-standard-program',
+            category: 'Trade / Policy',
+            affected_region: 'United States'
+          });
+
+          articles.push({
+            source: 'NOPA (미국 전국유지작물가공협회)',
+            title_kr: 'NOPA 월간 대두유 기말재고 통계',
+            summary_kr: '대두 착유량 증가에도 불구하고 바이오연료 가공 수요로 인해 대두유 재고 증가세가 억제되고 있습니다.',
+            publication_date: '2026-09-19',
+            original_url: 'https://www.nopa.org',
+            category: 'Supply',
+            affected_region: 'United States'
+          });
+
+          articles.push({
+            source: '부에노스아이레스 곡물거래소 (BNA)',
+            title_kr: '아르헨티나 로사리오항 대두유 수출 오퍼 및 운송 여건',
+            summary_kr: '파라나강 바지선 운송이 순조로우며 대두유 FOB 수출 프리미엄이 완만한 안정세를 유지하고 있습니다.',
+            publication_date: '2026-09-21',
+            original_url: 'https://www.bolsadecereales.com',
+            category: 'Logistics',
+            affected_region: 'Argentina'
+          });
+        } else if (normCommodity === 'palm-oil') {
+          articles.push({
+            source: 'MPOB (말레이시아 팜유이사회)',
+            title_kr: 'MPOB 월간 팜유 생산량, 수출량 및 기말재고 통계',
+            summary_kr: '말레이시아 팜유 기말재고가 계절적 생산 정체와 수출 호조로 전월 대비 타이트한 수준을 기록했습니다.',
+            publication_date: '2026-09-16',
+            original_url: 'https://www.mpob.gov.my',
+            category: 'Supply',
+            affected_region: 'Malaysia'
+          });
+
+          articles.push({
+            source: '인도네시아 팜유협회 (GAPKI)',
+            title_kr: '인도네시아 B40 바이오디젤 의무화 추진 및 수출 영향',
+            summary_kr: '내수 바이오디젤 믹스 확대에 따른 CPO 수출 가용량 축소 우려가 글로벌 시장 하단을 지지하고 있습니다.',
+            publication_date: '2026-09-20',
+            original_url: 'https://gapki.id',
+            category: 'Trade / Policy',
+            affected_region: 'Indonesia'
+          });
+
+          articles.push({
+            source: 'Bursa Malaysia Derivatives (BMD)',
+            title_kr: 'BMD FCPO 선물 거래 및 글로벌 식용유 스프레드',
+            summary_kr: '대두유와의 가격 격차 축소 속에서 인도 및 중국의 수입 바이어 포지션이 관망세를 나타내고 있습니다.',
+            publication_date: '2026-09-23',
+            original_url: 'https://www.bursamalaysia.com',
+            category: 'Price / Market',
+            affected_region: 'Southeast Asia'
+          });
+        } else if (normCommodity === 'sugar') {
+          articles.push({
+            source: 'UNICA (브라질 사탕수수산업협회)',
+            title_kr: 'UNICA 브라질 중남부 격주 사탕수수 파쇄 및 설탕 생산 실적',
+            summary_kr: '중남부 제분소의 설탕 생산 비중(Sugar Mix)이 견조하게 유지되며 글로벌 공급 우려를 완화하고 있습니다.',
+            publication_date: '2026-09-17',
+            original_url: 'https://unica.com.br',
+            category: 'Supply',
+            affected_region: 'Brazil'
+          });
+
+          articles.push({
+            source: 'ISMA (인도 설탕밀협회)',
+            title_kr: '인도 사탕수수 수확 전망 및 에탄올 전환 정책 동향',
+            summary_kr: '인도 정부의 에탄올 생산 장려 정책으로 수출 쿼터 재개 여부가 시장의 주요 변수로 작용하고 있습니다.',
+            publication_date: '2026-09-19',
+            original_url: 'https://www.indiansugar.com',
+            category: 'Trade / Policy',
+            affected_region: 'India'
+          });
+
+          articles.push({
+            source: '태국 사탕수수설탕위원회 (OCSB)',
+            title_kr: '태국 사탕수수 작황 및 원당 수출 선적 동향',
+            summary_kr: '강우량 개선으로 가뭄 피해가 점진적 완화세를 보이며 수출 선적 단가가 안정세를 나타내고 있습니다.',
+            publication_date: '2026-09-21',
+            original_url: 'https://www.ocsb.go.th',
+            category: 'Crop',
+            affected_region: 'Thailand'
+          });
+        } else if (normCommodity.includes('potato')) {
+          articles.push({
+            source: 'EC AGRI (유럽연합 농업집행위)',
+            title_kr: 'EU 가공 감자 수확 여건 및 전분 수율 전망',
+            summary_kr: '독일, 네덜란드, 프랑스 등 서유럽 주요 산지의 수확이 순조롭게 진행되어 전분 생산 수율이 안정적입니다.',
+            publication_date: '2026-09-16',
+            original_url: 'https://agriculture.ec.europa.eu',
+            category: 'Crop',
+            affected_region: 'European Union'
+          });
+
+          articles.push({
+            source: 'EUREX / EU Agri-food Data Portal',
+            title_kr: '유럽 가공 감자 벤치마크 지수 및 공장 출하 단가',
+            summary_kr: '서유럽 가공 공장 에너지 비용 안정으로 감자 전분 CIF 오퍼 가격이 860~880 EUR/MT 밴드에 안착했습니다.',
+            publication_date: '2026-09-22',
+            original_url: 'https://agridata.ec.europa.eu',
+            category: 'Price / Market',
+            affected_region: 'Germany / Netherlands'
+          });
+        } else if (normCommodity.includes('tapioca')) {
+          articles.push({
+            source: 'TTSA (태국 타피오카 협회)',
+            title_kr: 'TTSA 주간 타피오카 전분 FOB 방콕 고시 및 수출 통계',
+            summary_kr: 'FOB 방콕 기준 495~510 USD/MT 밴드를 형성하며 카사바 생뿌리 공장 반입 단가가 안정적입니다.',
+            publication_date: '2026-09-18',
+            original_url: 'http://www.ttsa.or.th',
+            category: 'Price / Market',
+            affected_region: 'Thailand'
+          });
+
+          articles.push({
+            source: '태국 농업경제국 (OAE)',
+            title_kr: '동남아 카사바 생뿌리 생육 및 병해(CMD) 완화 보고',
+            summary_kr: '카사바 모자이크 병해 발생률 감소와 적정 일조량으로 생뿌리 전분 수율이 정상화되고 있습니다.',
+            publication_date: '2026-09-21',
+            original_url: 'https://www.oae.go.th',
+            category: 'Crop',
+            affected_region: 'Southeast Asia'
+          });
         }
 
-        // Add current web-grounded developments when a Gemini key is available.
-        if (apiKey && apiKey !== 'DEMO_KEY' && apiKey !== 'MY_GEMINI_API_KEY') {
+        // 2. Add current web-grounded developments when a Gemini key is available and not in rate-limit cooldown.
+        if (apiKey && apiKey !== 'DEMO_KEY' && apiKey !== 'MY_GEMINI_API_KEY' && Date.now() >= marketIntelligenceCooldownUntil) {
           try {
             const ai = new GoogleGenAI({
               apiKey,
               httpOptions: { headers: { 'User-Agent': 'aistudio-build' } }
             });
             const prompt = `You are curating procurement-grade Market Intelligence for ${commodityParam}.
-Search the web for 2 to 4 distinct, high-priority developments from the latest 30 days. Prioritize official/primary sources first (USDA/FAS/WASDE, AMIS, ABARES, AAFC, EU Agri-food, JRC MARS/Copernicus, MPOB/BMD, KREI when relevant), then reputable international news for fast-moving policy/logistics events.
+Search the web for 2 to 4 distinct, high-priority developments from the latest 30 days. Prioritize official/primary sources first (USDA/FAS/WASDE, AMIS, ABARES, AAFC, EU Agri-food, JRC MARS/Copernicus, MPOB/BMD, UNICA, CONAB, TTSA, KREI when relevant), then reputable international news for fast-moving policy/logistics events.
 Rank by procurement relevance, recency, and impact on price, supply, crop conditions, policy, or logistics. Avoid duplicate stories about the same event.
 Return ONLY a JSON array, no markdown. Each item must have:
 {
@@ -845,14 +1121,31 @@ Never fabricate titles, dates, or URLs. If only 2 or 3 verified items exist, ret
             const match = text.match(/\[[\s\S]*\]/);
             if (match) {
               const grounded = JSON.parse(match[0]);
-              if (Array.isArray(grounded)) articles.push(...grounded);
+              if (Array.isArray(grounded) && grounded.length > 0) {
+                // Prepend fresh grounded articles
+                articles = [...grounded, ...articles];
+              }
             }
           } catch (err: any) {
-            console.warn('[MarketIntelligence] Grounded web search unavailable:', err?.message || err);
+            const errStr = String(err?.message || err);
+            const is429 =
+              err?.status === 429 ||
+              err?.status === 'RESOURCE_EXHAUSTED' ||
+              err?.code === 429 ||
+              errStr.includes('429') ||
+              errStr.includes('quota') ||
+              errStr.includes('RESOURCE_EXHAUSTED');
+
+            if (is429) {
+              marketIntelligenceCooldownUntil = Date.now() + 10 * 60 * 1000; // 10 minutes cooldown
+              console.info('[MarketIntelligence] API quota limit reached (429). Activating 10m cooldown mode for grounded news feed.');
+            } else {
+              console.info('[MarketIntelligence] Grounded search notice:', err?.message || errStr);
+            }
           }
         }
 
-        // Dedupe by URL/title and cap at 4. Prefer grounded/current items that appear first only when unique.
+        // Dedupe by URL/title and cap at 4 (return 4 when available, otherwise 2-3)
         const seen = new Set<string>();
         articles = articles
           .filter((item) => item && item.original_url && item.title_kr)

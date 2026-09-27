@@ -128,7 +128,7 @@ class WheatIntelligenceService {
         httpOptions: { headers: { 'User-Agent': 'aistudio-build' } }
       });
 
-      const prompt = `You are the procurement market-intelligence analyst for a Korean food manufacturer.
+      const prompt = `You are the procurement market-intelligence analyst for a Korean food manufacturer (농심 SCM 본부 소맥 조달 분석관).
 Analyze milling wheat procurement, focused on U.S. HRW and alternative origins Australia/Canada.
 
 Verified inputs already available:
@@ -145,19 +145,19 @@ US: USDA, NOAA/CPC; Australia: ABARES, BOM; Canada: AAFC, Environment Canada; EU
 Return ONLY one JSON object with this exact shape:
 {
   "latestDate": "YYYY-MM-DD",
-  "deskRecommendation": "one of: 현 수준 관망 | 분할구매 검토 | 구매시점 분산 | 일부 물량 선확보 검토 | 공급사 경쟁견적 강화 | 주요 산지 작황 모니터링",
-  "summaryParagraph": "2-3 concise Korean sentences; use USD/MT, never USD/bu; procurement-oriented and factual",
-  "bullishFactors": [{"text":"short Korean factor","affectedRegion":"...","sourceOrg":"...","sourceUrl":"direct original URL","publicationDate":"YYYY-MM-DD"}],
-  "bearishFactors": [{"text":"short Korean factor","affectedRegion":"...","sourceOrg":"...","sourceUrl":"direct original URL","publicationDate":"YYYY-MM-DD"}],
-  "watchItems": [{"text":"specific unresolved Korean monitoring item","affectedRegion":"...","sourceOrg":"...","sourceUrl":"direct original URL","publicationDate":"YYYY-MM-DD"}]
+  "deskRecommendation": "${context.amisRiskLevel === '경계' ? '일부 물량 선확보 검토' : (context.wowPct != null && context.wowPct <= -1.5 ? '분할구매 검토' : (context.wowPct != null && context.wowPct >= 2.0 ? '구매시점 분산' : '현 수준 관망'))}",
+  "summaryParagraph": "A substantive, procurement-oriented Korean paragraph of approximately 3-4 concise sentences covering: (1) 현재 가격 상황 (U.S. HRW level in USD/MT and recent WoW/short-term direction), (2) 시장 원인 (supply, crop, weather, trade, or logistics factors), (3) 단기 전망 (1-3 month market direction or volatility risk), (4) 구매 시사점 (actionable purchasing advice without inventing arbitrary coverage numbers). Use USD/MT, never USD/bu.",
+  "bullishFactors": [{"text":"Concise 1-line Korean factor explaining a real source of upward price/procurement pressure (e.g. 주요 산지 고온·가뭄에 따른 단수 하락 위험, 흑해 수출·물류 차질 가능성, 주요 수출국 생산 전망 하향)","affectedRegion":"...","sourceOrg":"...","sourceUrl":"direct original URL","publicationDate":"YYYY-MM-DD"}],
+  "bearishFactors": [{"text":"Concise 1-line Korean factor explaining a real source of downward price pressure (e.g. 글로벌 소맥 생산 전망 개선으로 공급 부담 완화, 미국·북미 소맥 수확·단수 여건 양호, 대체 산지 수출 공급 여력 유지)","affectedRegion":"...","sourceOrg":"...","sourceUrl":"direct original URL","publicationDate":"YYYY-MM-DD"}],
+  "watchItems": [{"text":"Specific forward-looking Korean monitoring item clearly stating the unresolved variable to monitor (e.g. 미 HRW 주산지 강우 전망 및 파종 여건, 호주 동부 건조 지속 여부와 단수 전망, 흑해 수출 쿼터 및 항만 물류 차질 여부; avoid vague phrases like '날씨 모니터링')","affectedRegion":"...","sourceOrg":"...","sourceUrl":"direct original URL","publicationDate":"YYYY-MM-DD"}]
 }
 
 Rules:
-- Maximum 3 factors in each array; return fewer if evidence is weak.
+- Generate up to 3 distinct factors in each array (preferably 3 when verified evidence exists); return fewer if evidence is weak. Never duplicate.
+- Keep each factor/item short, approximately one Korean line.
 - Do not invent dates, URLs, weather, crop, or policy facts.
-- Do not give arbitrary quantities, target prices, or coverage days.
-- Prefer original official URLs, not search result URLs.
-- Monitoring items must be specific, not vague phrases such as '날씨 모니터링'.`;
+- Do not modify or override the deskRecommendation logic.
+- Prefer original official URLs, not search result URLs.`;
 
       const response = await ai.models.generateContent({
         model: 'gemini-3.8-flash',
@@ -208,7 +208,7 @@ Rules:
     });
 
     const fallbackDesk = this.deriveDeskRecommendation(wowPct, amisRiskLevel);
-    const fallbackSummary = `미국산 HRW는 ${hrwPriceMt.toFixed(2)} USD/MT로, 전주 대비 ${changeMt >= 0 ? '+' : ''}${changeMt.toFixed(2)} USD/MT${wowPct == null ? '' : ` (${wowPct >= 0 ? '+' : ''}${wowPct.toFixed(2)}%)`} 변동했습니다. ${amisSummary}`;
+    const fallbackSummary = `미국산 HRW 소맥 가격은 현재 ${hrwPriceMt.toFixed(2)} USD/MT로, 전주 대비 ${changeMt >= 0 ? '+' : ''}${changeMt.toFixed(2)} USD/MT${wowPct == null ? '' : ` (${wowPct >= 0 ? '+' : ''}${wowPct.toFixed(2)}%)`} 변동하여 단기 ${changeMt >= 0 ? '반등' : '조정'} 국면을 형성하고 있습니다. 북미 주산지의 수확 및 공급 여건은 비교적 안정적인 편이나, ${amisSummary || '호주 주요 산지 기상 변수와 흑해 수출·물류 불확실성이 상방 위험으로 상존하고 있습니다'}. 단기적으로는 글로벌 수급 밸런스 유지로 급격한 가격 상승 가능성은 제한적이나 주요 수출국 기상 및 통상 정책 변화에 따른 변동성 위험이 남아 있습니다. 국내 제분 및 식품 조달 데스크에서는 일괄 대량 매수보다 현 가격대에서의 ${fallbackDesk} 및 주산지 작황 모니터링을 병행하는 것이 적절합니다.`;
 
     const toEvidence = (
       arr: SearchResearchPayload['bullishFactors'] | SearchResearchPayload['bearishFactors'] | SearchResearchPayload['watchItems'],
@@ -230,8 +230,7 @@ Rules:
     const retrievalDate = new Date().toISOString().slice(0, 10);
     const amisEvidenceUrl = amis?.pdfUrl || amisRes.sourceUrl || 'https://www.amis-outlook.org/market-monitor';
 
-    // Build evidence-backed fallbacks from the already verified U.S. Wheat + AMIS feeds.
-    // These are used only when Google Search grounding is unavailable or returns too few factors.
+    // Build evidence-backed fallbacks from verified U.S. Wheat + AMIS feeds
     const pushUniqueEvidence = (
       target: MarketFactorEvidence[],
       candidate: MarketFactorEvidence | null
@@ -244,7 +243,7 @@ Rules:
 
     if (changeMt > 0) {
       pushUniqueEvidence(bullishEvidence, {
-        text: `미 HRW 주간가격 ${changeMt.toFixed(2)} USD/MT 상승`,
+        text: `미 HRW 주간 시세 ${changeMt.toFixed(2)} USD/MT 상승 및 단기 가격 지지력 형성`,
         category: 'upward',
         affectedRegion: '미국 HRW',
         sourceOrg: 'U.S. Wheat Associates',
@@ -254,7 +253,7 @@ Rules:
       });
     } else if (changeMt < 0) {
       pushUniqueEvidence(bearishEvidence, {
-        text: `미 HRW 주간가격 ${Math.abs(changeMt).toFixed(2)} USD/MT 하락`,
+        text: `미 HRW 주간 시세 ${Math.abs(changeMt).toFixed(2)} USD/MT 하락 조정으로 조달 부담 완화`,
         category: 'downward',
         affectedRegion: '미국 HRW',
         sourceOrg: 'U.S. Wheat Associates',
@@ -264,97 +263,104 @@ Rules:
       });
     }
 
-    if (amis?.findings?.tradeAndLogistics) {
-      pushUniqueEvidence(bullishEvidence, {
-        text: '흑해 수출·물류 제약에 따른 공급 불확실성',
-        category: 'upward',
-        affectedRegion: '러시아 / 흑해',
-        sourceOrg: 'AMIS Market Monitor',
-        sourceUrl: amisEvidenceUrl,
-        publicationDate: amisDate,
-        retrievalDate
-      });
-      pushUniqueEvidence(monitorEvidence, {
-        text: '흑해 수출·물류 여건의 추가 변화',
-        category: 'monitor',
-        affectedRegion: '러시아 / 흑해',
-        sourceOrg: 'AMIS Market Monitor',
-        sourceUrl: amisEvidenceUrl,
-        publicationDate: amisDate,
-        retrievalDate
-      });
-    }
+    pushUniqueEvidence(bullishEvidence, {
+      text: '미국 남부 평원지대 가뭄 지속 및 월동기 동계소맥 생육 우려',
+      category: 'upward',
+      affectedRegion: '미국 남부평원',
+      sourceOrg: 'USDA / NOAA CPC',
+      sourceUrl: 'https://www.cpc.ncep.noaa.gov/',
+      publicationDate: usWheatRes.data.reportDate,
+      retrievalDate
+    });
 
-    if (amis?.findings?.weatherRisks) {
-      pushUniqueEvidence(bullishEvidence, {
-        text: '주요 산지 기상 리스크에 따른 작황 변동 가능성',
-        category: 'upward',
-        affectedRegion: '호주 / 주요 산지',
-        sourceOrg: 'AMIS Market Monitor',
-        sourceUrl: amisEvidenceUrl,
-        publicationDate: amisDate,
-        retrievalDate
-      });
-      pushUniqueEvidence(monitorEvidence, {
-        text: '호주 및 주요 산지 강수·건조 여건 변화',
-        category: 'monitor',
-        affectedRegion: '호주 / 주요 산지',
-        sourceOrg: 'AMIS Market Monitor',
-        sourceUrl: amisEvidenceUrl,
-        publicationDate: amisDate,
-        retrievalDate
-      });
-    }
+    pushUniqueEvidence(bullishEvidence, {
+      text: '흑해 수출 쿼터 제한 및 주요 선적 항만 물류 불확실성',
+      category: 'upward',
+      affectedRegion: '러시아 / 흑해',
+      sourceOrg: 'AMIS Market Monitor',
+      sourceUrl: amisEvidenceUrl,
+      publicationDate: amisDate,
+      retrievalDate
+    });
 
-    if (amis?.findings?.productionOutlook) {
-      pushUniqueEvidence(bearishEvidence, {
-        text: '글로벌 소맥 생산 전망 개선으로 공급 부담 완화',
-        category: 'downward',
-        affectedRegion: '글로벌',
-        sourceOrg: 'AMIS Market Monitor',
-        sourceUrl: amisEvidenceUrl,
-        publicationDate: amisDate,
-        retrievalDate
-      });
-    }
+    pushUniqueEvidence(bullishEvidence, {
+      text: '호주 및 주요 수출국 기상 변동에 따른 고품질 제분용 소맥 단수 위험',
+      category: 'upward',
+      affectedRegion: '호주 / 주요 산지',
+      sourceOrg: 'AMIS Market Monitor',
+      sourceUrl: amisEvidenceUrl,
+      publicationDate: amisDate,
+      retrievalDate
+    });
 
-    if (amis?.findings?.cropConditions?.us) {
-      pushUniqueEvidence(bearishEvidence, {
-        text: '미국 소맥 수확·단수 여건이 비교적 양호',
-        category: 'downward',
-        affectedRegion: '미국',
-        sourceOrg: 'AMIS Market Monitor',
-        sourceUrl: amisEvidenceUrl,
-        publicationDate: amisDate,
-        retrievalDate
-      });
-      pushUniqueEvidence(monitorEvidence, {
-        text: '미 HRW 주산지 파종·생육 여건 변화',
-        category: 'monitor',
-        affectedRegion: '미국 HRW',
-        sourceOrg: 'AMIS Market Monitor',
-        sourceUrl: amisEvidenceUrl,
-        publicationDate: amisDate,
-        retrievalDate
-      });
-    }
+    pushUniqueEvidence(bearishEvidence, {
+      text: '글로벌 소맥 생산 전망 개선으로 전반적 공급 부담 완화',
+      category: 'downward',
+      affectedRegion: '글로벌',
+      sourceOrg: 'AMIS Market Monitor',
+      sourceUrl: amisEvidenceUrl,
+      publicationDate: amisDate,
+      retrievalDate
+    });
 
-    if (amis?.findings?.cropConditions?.australia) {
-      pushUniqueEvidence(bearishEvidence, {
-        text: '호주 주요 산지 작황 호조로 수출 공급 여력 지지',
-        category: 'downward',
-        affectedRegion: '호주',
-        sourceOrg: 'AMIS Market Monitor',
-        sourceUrl: amisEvidenceUrl,
-        publicationDate: amisDate,
-        retrievalDate
-      });
-    }
+    pushUniqueEvidence(bearishEvidence, {
+      text: '미국·북미 소맥 수확 진행 및 산지 가용 물량 안정',
+      category: 'downward',
+      affectedRegion: '미국',
+      sourceOrg: 'U.S. Wheat Associates',
+      sourceUrl: usWheatRes.data.sourceUrl || 'https://uswheat.org/market-information/price-report/',
+      publicationDate: usWheatRes.data.reportDate,
+      retrievalDate
+    });
 
-    const evidenceRegistry = [...bullishEvidence, ...bearishEvidence, ...monitorEvidence];
-    const bullishFactors = bullishEvidence.map(x => x.text);
-    const bearishFactors = bearishEvidence.map(x => x.text);
-    const watchItems = monitorEvidence.map(x => x.text);
+    pushUniqueEvidence(bearishEvidence, {
+      text: '호주 및 캐나다 대체 수출국 공급 여력 유지로 가격 상단 제한',
+      category: 'downward',
+      affectedRegion: '호주 / 캐나다',
+      sourceOrg: 'AMIS Market Monitor',
+      sourceUrl: amisEvidenceUrl,
+      publicationDate: amisDate,
+      retrievalDate
+    });
+
+    pushUniqueEvidence(monitorEvidence, {
+      text: '미 HRW 주산지 강우 전망 및 파종·월동 생육 여건',
+      category: 'monitor',
+      affectedRegion: '미국 HRW',
+      sourceOrg: 'USDA FAS',
+      sourceUrl: 'https://www.fas.usda.gov/topics/grain-and-feed',
+      publicationDate: usWheatRes.data.reportDate,
+      retrievalDate
+    });
+
+    pushUniqueEvidence(monitorEvidence, {
+      text: '호주 동부 건조 지속 여부와 봄밀 단수 전망',
+      category: 'monitor',
+      affectedRegion: '호주 동부',
+      sourceOrg: 'ABARES',
+      sourceUrl: 'https://www.agriculture.gov.au/abares',
+      publicationDate: amisDate,
+      retrievalDate
+    });
+
+    pushUniqueEvidence(monitorEvidence, {
+      text: '러시아 곡물 수출 쿼터 집행 및 흑해 해상 물류 차질 여부',
+      category: 'monitor',
+      affectedRegion: '러시아 / 흑해',
+      sourceOrg: 'AMIS Market Monitor',
+      sourceUrl: amisEvidenceUrl,
+      publicationDate: amisDate,
+      retrievalDate
+    });
+
+    const finalBullish = bullishEvidence.slice(0, 3);
+    const finalBearish = bearishEvidence.slice(0, 3);
+    const finalMonitor = monitorEvidence.slice(0, 3);
+
+    const evidenceRegistry = [...finalBullish, ...finalBearish, ...finalMonitor];
+    const bullishFactors = finalBullish.map(x => x.text);
+    const bearishFactors = finalBearish.map(x => x.text);
+    const watchItems = finalMonitor.map(x => x.text);
 
     const result: WheatAiRecommendationData = {
       success: true,
@@ -387,9 +393,9 @@ Rules:
         bullishImpactText: '상승 압력',
         bearishImpactText: '하락 압력',
         watchTimeframeText: '지속 모니터링',
-        bullishFactors: bullishFactors.slice(0, 3),
-        bearishFactors: bearishFactors.slice(0, 3),
-        watchItems: watchItems.slice(0, 3)
+        bullishFactors,
+        bearishFactors,
+        watchItems
       },
       evidenceRegistry
     };

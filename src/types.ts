@@ -454,3 +454,71 @@ export interface AmisWheatResponse {
   isCached?: boolean;
   isStale?: boolean;
 }
+
+// USDA AMS Corn Physical Export & Ocean Freight Types
+export interface UsdaAmsCornFobExport {
+  commodity: 'Corn';
+  grade: string; // e.g. '#2 Yellow Corn'
+  exportLocation: string; // e.g. 'U.S. Gulf (Louisiana)'
+  shipmentPeriod: string; // e.g. 'Prompt / Nearby'
+  fobPriceUsdMt: number;
+  fobPriceUsdBu: number;
+  basisCentsBu?: number;
+  observationDate: string;
+  source: string;
+  sourceUrl: string;
+}
+
+export interface CornKoreaOceanFreight {
+  origin: string; // 'U.S. Gulf'
+  destination: string; // 'South Korea'
+  freightRateUsdMt: number;
+  vessel: string; // 'Panamax (54+ TMT)'
+  observationDate: string;
+  source: string;
+  sourceUrl: string;
+}
+
+export interface EstimatedCornKoreaLandedCost {
+  isAvailable: boolean;
+  statusText: string;
+  statusReason?: string;
+  estimatedLandedCostUsdMt: number | null;
+  compactFormulaText: string;
+  physicalFob: UsdaAmsCornFobExport | null;
+  koreaFreight: CornKoreaOceanFreight | null;
+  portCostAssumption: {
+    portCostUsdMt: number | null;
+    isConfigured: boolean;
+    label: string;
+  };
+  missingInputs: string[];
+}
+
+export interface CornProcurementAnalysisData {
+  benchmarkPrice: {
+    rawPrice: number;
+    rawUnit: string;
+    usdPerMT: number;
+    observationDate: string;
+    source: string;
+  };
+  weeklyChange: {
+    wowPct: number;
+    absoluteChangeUsdMt: number;
+    direction: 'up' | 'down' | 'unchanged';
+    previousPriceUsdMt: number;
+    calculationBasis: string;
+  };
+  landedCost: EstimatedCornKoreaLandedCost;
+  deskRecommendation: {
+    recommendation: string;
+    dataInputsUsed: string[];
+  };
+  procurementRisk: {
+    level: '안정' | '주의' | '경계';
+    summarySentenceKo: string;
+    sourcesUsed: string[];
+  };
+}
+

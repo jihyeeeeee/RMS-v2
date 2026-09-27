@@ -547,7 +547,8 @@ export const OverviewTerminal: React.FC<OverviewTerminalProps> = ({
               </span>
             </div>
             <h1 className="text-lg print:text-base font-bold text-slate-900 leading-snug break-keep">
-              글로벌 농산물 구매 및 시장 정보 개요 <span className="text-base print:text-sm font-bold text-slate-900">(Global Agricultural Procurement & Market Intelligence Overview)</span>
+              <div>글로벌 농산물 구매 및 시장 정보 개요</div>
+              <div className="text-base print:text-sm font-bold text-slate-900 mt-0.5">(Global Agricultural Procurement & Market Intelligence Overview)</div>
             </h1>
             <p className="text-xs text-slate-500 mt-1.5 print:mt-0.5 leading-relaxed break-keep">
               농심 원자재 구매 데스크를 위한 핵심 품목 실시간 가격 벤치마크 및 거시경제 모니터링 매트릭스
