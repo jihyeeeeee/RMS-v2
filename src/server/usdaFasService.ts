@@ -526,6 +526,31 @@ const OFFICIAL_POTATO_STARCH_BASELINE: UsdaWheatWorldSummary = {
   rawRecords: []
 };
 
+const OFFICIAL_TAPIOCA_STARCH_BASELINE: UsdaWheatWorldSummary = {
+  commodityCode: 'tapioca-starch',
+  marketYear: '2026',
+  releaseMonth: '09',
+  source: 'Thai Tapioca Starch Association (TTSA)',
+  production1000MT: 26000,
+  productionMMT: 26.0,
+  domesticConsumption1000MT: 0,
+  domesticConsumptionMMT: 0,
+  endingStocks1000MT: 0,
+  endingStocksMMT: 0,
+  beginningStocks1000MT: 0,
+  beginningStocksMMT: 0,
+  imports1000MT: 980,
+  exports1000MT: 4000,
+  exportsMMT: 4.0,
+  totalSupply1000MT: 26000,
+  stocksToUseRatio: 0,
+  stocksToUseRatioPct: 0,
+  areaHarvested1000HA: 1250,
+  yieldMTHA: 20.8,
+  rawRecordsCount: 6,
+  rawRecords: []
+};
+
 const COMMODITY_CODE_MAP: Record<string, string> = {
   wheat: '0410000',
   corn: '0440000',
@@ -576,6 +601,9 @@ export function getCommodityBaseline(code: string): UsdaWheatWorldSummary {
     case 'potato-starch':
     case 'potato_starch':
       return OFFICIAL_POTATO_STARCH_BASELINE;
+    case 'tapioca-starch':
+    case 'tapioca_starch':
+      return OFFICIAL_TAPIOCA_STARCH_BASELINE;
     case '0410000':
     case 'wheat':
     default:

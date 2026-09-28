@@ -1,3 +1,5 @@
+import { ttsaService } from './ttsaService';
+
 export interface TickerConfig {
   symbol: string;
   name: string;
@@ -15,7 +17,7 @@ export const tickerMap: Record<string, TickerConfig> = {
   'palm-oil': { symbol: 'FCPO.KL', multiplier: 1, name: 'Bursa Malaysia Palm Oil' },
   sugar: { symbol: 'SB=F', lbsPerMt: 2204.62, name: 'ICE Sugar' },
   'potato-starch': { symbol: 'CN_110813', name: 'Eurostat Comext CN 110813 Potato Starch Unit Value' },
-  'tapioca-starch': { symbol: 'ZC=F', buPerMt: 39.368, name: 'Tapioca Benchmark (CBOT Corn)' }
+  'tapioca-starch': { symbol: 'TTSA_FOB_BANGKOK', name: 'Thai Tapioca Starch Association Weekly Price' }
 };
 
 export async function fetchHistoricalData(commodityId: string = 'corn', timeframe: string = '6M') {
@@ -81,6 +83,34 @@ export async function fetchHistoricalData(commodityId: string = 'corn', timefram
       range: timeframe,
       source: 'Eurostat Comext · CN 110813',
       data: filtered,
+    };
+  }
+
+  if (cleanId === 'tapioca-starch' || cleanId === 'tapioca_starch') {
+    const weeklyPrices = await ttsaService.getWeeklyPrices();
+    
+    // Filter by timeframe: 1M (4 weeks), 3M (12 weeks), 6M (26 weeks), 1Y (52 weeks)
+    let filtered = weeklyPrices;
+    if (timeframe === '1M') filtered = weeklyPrices.slice(-4);
+    else if (timeframe === '3M') filtered = weeklyPrices.slice(-12);
+    else if (timeframe === '6M') filtered = weeklyPrices.slice(-26);
+    else if (timeframe === '1Y' || timeframe === 'ALL') filtered = weeklyPrices.slice(-52);
+    else filtered = weeklyPrices.slice(-26); // Default to 6M
+
+    const dataPoints = filtered.map(item => ({
+      date: item.date,
+      usdPerMT: item.price,
+      centsPerBushel: item.price
+    }));
+
+    return {
+      success: true,
+      commodity: 'tapioca-starch',
+      symbol: 'TTSA_FOB_BANGKOK',
+      timeframe,
+      range: timeframe,
+      source: 'Thai Tapioca Starch Association · FOB Bangkok',
+      data: dataPoints,
     };
   }
 

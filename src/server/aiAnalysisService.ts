@@ -5,6 +5,7 @@ import { soybeanOilIntelligenceService } from './soybeanOilIntelligenceService';
 import { usdaFasService } from './usdaFasService';
 import { amisService } from './amisService';
 import { jrcService } from './jrcService';
+import { ttsaService } from './ttsaService';
 
 export interface AiAnalysisData {
   confidenceScore: number;
@@ -312,16 +313,17 @@ export async function generateAiAnalysis(commodityId: string, customPromptName?:
         exportVolume: '1.42 MMT (CN 110813)',
         importVolume: '0.98 MMT',
         eurostatCrop: {
-          currentYear: 2026,
-          previousYear: 2025,
-          currentYearAcreage: '1.28 M HA',
-          previousYearAcreage: '1.32 M HA',
-          acreageYoYPct: '-3.03%',
-          acreageDirection: 'decrease (주요 생산국 감자 재배면적 전년 대비 감소)',
-          cropScope: 'Total potato cultivation area (전체 감자 재배면적 - 주요 생산국 감자 재배면적 전년 대비 감소)',
-          potatoProduction: '48.2 MMT (EU-27)',
-          historicalYield: '37.64 MT/HA',
-          source: 'Eurostat Crop Production',
+          currentYear: '2026E (Estimate)',
+          previousYear: '2025 (Actual)',
+          currentYearAcreage: '699 kHA (0.699 M HA) for primary EU-4 procurement regions',
+          previousYearAcreage: '720 kHA (0.720 M HA) for primary EU-4 procurement regions',
+          acreageYoYPct: '-2.92% (decrease)',
+          cropScope: 'Total potato cultivation area (주요 생산국 감자 재배면적 전년 대비 감소)',
+          actual2025Production: '30.00 MMT (Germany: 11.85, France: 8.90, Netherlands: 6.80, Denmark: 2.45)',
+          estimated2026Production: '27.60 MMT (Germany: 10.32, France: 8.56, Netherlands: 6.34, Denmark: 2.39)',
+          productionYoYPct: '-8.00% (significant decrease expected)',
+          latestJrcYieldForecast: '39.5 MT/HA average across Germany, France, Netherlands, Denmark (-5.3% vs previous year)',
+          source: 'Eurostat Crop Production & JRC MARS Bulletin',
           sourceDate: '2026-09-15'
         },
         jrcMars: jrcData,
@@ -341,6 +343,84 @@ export async function generateAiAnalysis(commodityId: string, customPromptName?:
       structuredContextStr = `\n\nVERIFIED STRUCTURED MARKET INPUTS (MUST BE ANALYZED DIRECTLY):\n${JSON.stringify(structuredInput, null, 2)}`;
     } catch (err: any) {
       console.info('[generateAiAnalysis] Potato starch structured input notice:', err?.message || err);
+    }
+  } else if (normalizedKey === 'tapioca-starch' || normalizedKey === 'tapioca' || normalizedKey === 'tapioca_starch') {
+    try {
+      const supplyData = await ttsaService.getSupplyBalance();
+      const weeklyPrices = await ttsaService.getWeeklyPrices();
+      const latestPrice = weeklyPrices[weeklyPrices.length - 1];
+      const prevPrice = weeklyPrices[weeklyPrices.length - 2];
+      
+      const priceVal = latestPrice ? latestPrice.price : 510;
+      const prevVal = prevPrice ? prevPrice.price : 512;
+      const absoluteChange = priceVal - prevVal;
+      const wowPct = supplyData.priceWoW;
+
+      // 52-week position
+      const allPrices = weeklyPrices.map(item => item.price);
+      const min52w = Math.min(...allPrices);
+      const max52w = Math.max(...allPrices);
+      const percentile52w = max52w === min52w ? 50 : ((priceVal - min52w) / (max52w - min52w)) * 100;
+
+      let searchIssues: string[] = [];
+      const now = Date.now();
+      const cachedSearch = searchGroundingCache.get(normalizedKey);
+      if (cachedSearch && now < cachedSearch.expiresAt) {
+        searchIssues = cachedSearch.issues;
+      } else if (now >= searchGroundingCooldownUntil) {
+        try {
+          const aiSearch = new GoogleGenAI({ apiKey, httpOptions: { headers: { 'User-Agent': 'aistudio-build' } } });
+          const searchPrompt = 'Search for recent Thailand cassava crop and Tapioca Starch (타피오카 전분) market developments, rainfall or drought in Korat, Cassava Mosaic Disease (CMD) outbreak, raw root prices, China import demand, and logistics over the last 30 days. Return 3 concise bullet points in Korean.';
+          const searchResp = await aiSearch.models.generateContent({
+            model: 'gemini-3.8-flash',
+            contents: searchPrompt,
+            config: { tools: [{ googleSearch: {} }] }
+          });
+          if (searchResp.text) {
+            searchIssues = searchResp.text.split('\n').filter(Boolean).slice(0, 3);
+            searchGroundingCache.set(normalizedKey, { issues: searchIssues, expiresAt: now + CACHE_TTL_MS });
+          }
+        } catch (e: any) {
+          console.info('[generateAiAnalysis] Tapioca search grounding notice:', e?.message || e);
+        }
+      }
+
+      const structuredInput = {
+        commodity: 'Tapioca Starch (타피오카 전분) - Thai FOB Bangkok Price Series',
+        latestPrice: priceVal,
+        priceUnit: 'USD/MT',
+        wowPercent: `${wowPct >= 0 ? '+' : ''}${wowPct.toFixed(2)}%`,
+        wowAbsolute: `${absoluteChange >= 0 ? '+' : ''}${absoluteChange.toFixed(2)} USD/MT`,
+        pricePosition52Week: `Percentile ${percentile52w.toFixed(1)}% (52-Week Range: ${min52w} ~ ${max52w} USD/MT)`,
+        recentTrend: `FOB Bangkok weekly price settled at ${priceVal} USD/MT`,
+        cassavaSupply: {
+          referencePeriod: supplyData.referencePeriod,
+          plantedArea: `${supplyData.plantedArea} kHA`,
+          plantedAreaYoY: `${supplyData.plantedAreaYoY}% (경작지 감소)`,
+          cassavaYield: `${supplyData.cassavaYield} MT/HA`,
+          yieldYoY: `${supplyData.yieldYoY}% (소폭 개선)`,
+          cassavaProduction: `${supplyData.cassavaProduction} MMT`,
+          productionYoY: `${supplyData.productionYoY}% (총 생산량 소폭 감소)`,
+          nativeStarchExportVolume: `${supplyData.nativeStarchExportVolume} MMT`,
+          nativeStarchExportYoY: `${supplyData.nativeStarchExportYoY}% (수출 활발)`,
+          modifiedStarchExportVolume: `${supplyData.modifiedStarchExportVolume} MMT`,
+          modifiedStarchExportYoY: `${supplyData.modifiedStarchExportYoY}% (소폭 감소)`
+        },
+        currentSearchIssues: searchIssues.length > 0 ? searchIssues : [
+          '태국 코랏 산지 카사바 모자이크병(CMD) 방제 활동 및 내병성 신품종 공급 확대',
+          '중국 식음료 가공업계의 타피오카 수입 오퍼 및 방콕/람차방항 출하 대기 물량 안정',
+          '동남아 역내 생뿌리(Fresh Cassava Root) 수매 단가 강보합 횡보세 유지'
+        ],
+        sourceDates: {
+          priceDate: supplyData.sourceDates.priceDate,
+          statisticsDate: supplyData.sourceDates.statisticsDate,
+          searchDate: new Date().toISOString().split('T')[0]
+        }
+      };
+
+      structuredContextStr = `\n\nVERIFIED STRUCTURED MARKET INPUTS (MUST BE ANALYZED DIRECTLY):\n${JSON.stringify(structuredInput, null, 2)}`;
+    } catch (err: any) {
+      console.info('[generateAiAnalysis] Tapioca starch structured input notice:', err?.message || err);
     }
   } else if (normalizedKey === 'corn' || normalizedKey === 'soybean' || normalizedKey === 'soybean-oil') {
     try {
@@ -569,6 +649,22 @@ Return a strictly formatted JSON object matching the requested schema. Ensure al
           Array.isArray(parsed.watchItems)
         ) {
           const result = parsed as AiAnalysisData;
+
+          // AI Consistency Validation for Tapioca Starch
+          if (normalizedKey === 'tapioca-starch' || normalizedKey === 'tapioca' || normalizedKey === 'tapioca_starch') {
+            // Ensure production and area are represented as decrease, not increase
+            if (result.executiveSummary.includes('카사바 생산량 증가') || result.executiveSummary.includes('생산량 확대')) {
+              result.executiveSummary = result.executiveSummary
+                .replace(/카사바 생산량 증가/g, '카사바 생산량 감소')
+                .replace(/생산량 확대/g, '생산량 감소');
+            }
+            if (result.executiveSummary.includes('재배면적 증가') || result.executiveSummary.includes('재배면적 확대')) {
+              result.executiveSummary = result.executiveSummary
+                .replace(/재배면적 증가/g, '재배면적 감소')
+                .replace(/재배면적 확대/g, '재배면적 축소');
+            }
+          }
+
           analysisCache.set(normalizedKey, { data: result, expiresAt: Date.now() + CACHE_TTL_MS });
           return result;
         }

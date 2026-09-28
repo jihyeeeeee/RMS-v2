@@ -793,6 +793,7 @@ export const CommodityDetail: React.FC<CommodityDetailProps> = ({
   const isPalmOil = commodity.id === 'palm-oil';
   const isSugar = commodity.id === 'sugar';
   const isPotatoStarch = commodity.id === 'potato-starch';
+  const isTapiocaStarch = commodity.id === 'tapioca-starch' || commodity.id === 'tapioca_starch';
 
   const [usdaData, setUsdaData] = useState<UsdaWheatSummary | null>(null);
   const [usdaLastUpdated, setUsdaLastUpdated] = useState<string>('');
@@ -1325,6 +1326,8 @@ export const CommodityDetail: React.FC<CommodityDetailProps> = ({
 
   const procurementRiskLevel: '안정' | '주의' | '경계' = isWheat
     ? (amisData?.macroRiskLevel || '주의')
+    : isPotatoStarch
+    ? '주의'
     : isCorn
     ? (cornAnalysis?.procurementRisk?.level || '안정')
     : isSoybean
@@ -1334,6 +1337,8 @@ export const CommodityDetail: React.FC<CommodityDetailProps> = ({
     : nonWheatRisk.level;
   const procurementRiskSummary = isWheat
     ? (amisData?.macroRiskSentenceKo || 'AMIS 최신 소맥 리스크 요약 연동 대기')
+    : isPotatoStarch
+    ? '유럽 주요 조달국 원료감자 생산량 감소 전망(-8.00%) 및 재배면적 축소(-2.92%), 여름철 가뭄 여파로 공급이 타이트한 상태이며 전분 수율 변동과 천연가스/유틸리티 비용 주시가 권고됩니다.'
     : isCorn
     ? (cornAnalysis?.procurementRisk?.summarySentenceKo || '미 콘벨트 수확 진척 및 글로벌 옥수수 공급 안정세(재고율 25.9%)가 유지되고 있으나 남미 파종기 강우 여건 및 해상 운임 변동성 모니터링 필요')
     : isSoybean
@@ -1581,12 +1586,120 @@ export const CommodityDetail: React.FC<CommodityDetailProps> = ({
     };
   }, [isWheat, historicalData, activeTimeframe, currency, exchangeRate]);
 
+  const potatoProductionChartData = useMemo(() => {
+    if (!isPotatoStarch) return null;
+
+    // Germany, France, Netherlands, Denmark
+    // 2022: 27.53, 2023: 29.16, 2024: 31.42, 2025: 30.00, 2026E: 27.60
+    const fullData = [
+      { date: '2022 Actual', price: 27.53, isEstimate: false },
+      { date: '2023 Actual', price: 29.16, isEstimate: false },
+      { date: '2024 Actual', price: 31.42, isEstimate: false },
+      { date: '2025 Actual', price: 30.00, isEstimate: false },
+      { date: '2026E Est.', price: 27.60, isEstimate: true }
+    ];
+
+    // Filter by timeframe:
+    // - 6M: 2 points (2025, 2026E)
+    // - 1Y: 3 points (2024, 2025, 2026E)
+    // - 2Y: 4 points (2023, 2024, 2025, 2026E)
+    // - 3Y: 5 points (all points)
+    let rawData = fullData;
+    if (activeTimeframe === '6M') {
+      rawData = fullData.slice(-2);
+    } else if (activeTimeframe === '1Y') {
+      rawData = fullData.slice(-3);
+    } else if (activeTimeframe === '2Y') {
+      rawData = fullData.slice(-4);
+    } else if (activeTimeframe === '3Y') {
+      rawData = fullData;
+    }
+
+    const N = rawData.length;
+    const allPrices = rawData.map(d => d.price);
+    const low = Math.min(...allPrices);
+    const high = Math.max(...allPrices);
+    const avg = allPrices.reduce((sum, val) => sum + val, 0) / N;
+
+    const width = 500;
+    const height = 150;
+    const padTop = 25;
+    const padBottom = 25;
+    const usableHeight = height - padTop - padBottom;
+
+    const minVal = 25.0; 
+    const maxVal = 34.0;
+    const valRange = maxVal - minVal;
+
+    const chartPoints = rawData.map((pt, idx) => {
+      const x = Math.round((idx / (N - 1)) * width);
+      const y = Math.round(height - padBottom - ((pt.price - minVal) / valRange) * usableHeight);
+      return {
+        date: pt.date,
+        price: pt.price,
+        usdPerMT: pt.price,
+        isEstimate: pt.isEstimate,
+        x,
+        y,
+      };
+    });
+
+    const buildSplinePath = (coords: { x: number; y: number }[]) => {
+      if (coords.length < 2) return '';
+      let path = `M ${coords[0].x},${coords[0].y}`;
+      for (let i = 0; i < coords.length - 1; i++) {
+        const curr = coords[i];
+        const next = coords[i + 1];
+        const cpX = Math.round((curr.x + next.x) / 2);
+        path += ` C ${cpX},${curr.y} ${cpX},${next.y} ${next.x},${next.y}`;
+      }
+      return path;
+    };
+
+    const linePath = buildSplinePath(chartPoints);
+    const areaPath = `${linePath} L ${width},150 L 0,150 Z`;
+
+    const ticks = [26.0, 28.0, 30.0, 32.0, 34.0].map(val => {
+      const y = Math.round(height - padBottom - ((val - minVal) / valRange) * usableHeight);
+      return { value: val, y };
+    });
+
+    const firstLabel = rawData[0].date;
+    const lastLabel = rawData[N - 1].date;
+    const mid1 = rawData[Math.floor(N * 0.33)]?.date || '';
+    const mid2 = rawData[Math.floor(N * 0.66)]?.date || '';
+
+    const axisLabels: [string, string, string, string] = [
+      firstLabel,
+      mid1,
+      mid2,
+      lastLabel
+    ];
+
+    return {
+      points: chartPoints,
+      linePath,
+      areaPath,
+      maPath: '',
+      minVal,
+      maxVal,
+      high,
+      low,
+      avg,
+      ticks,
+      axisLabels,
+    };
+  }, [isPotatoStarch, activeTimeframe]);
+
   const chartData = useMemo(() => {
+    if (isPotatoStarch && potatoProductionChartData) {
+      return potatoProductionChartData;
+    }
     if (!isWheat && historicalChartData) {
       return historicalChartData;
     }
     return getTimeframeChartData(effectiveBasePrice, activeTimeframe, commodity.sparkline);
-  }, [isWheat, historicalChartData, effectiveBasePrice, activeTimeframe, commodity.sparkline]);
+  }, [isWheat, isPotatoStarch, potatoProductionChartData, historicalChartData, effectiveBasePrice, activeTimeframe, commodity.sparkline]);
 
   // U.S. Wheat Associates Historical Time-Series Chart Data (SRW, HRW, HRS)
   const wheatChartData = useMemo(() => {
@@ -2137,7 +2250,7 @@ export const CommodityDetail: React.FC<CommodityDetailProps> = ({
                 </span>
                 <span>
                   {isPotatoStarch
-                    ? '-1.15%'
+                    ? '-8.00%'
                     : isWheat && hrwData
                     ? (hrwData.wowPct == null ? '-' : `${hrwData.wowPct > 0 ? '+' : ''}${hrwData.wowPct.toFixed(2)}%`)
                     : isCorn && cornAnalysis?.weeklyChange
@@ -2150,15 +2263,9 @@ export const CommodityDetail: React.FC<CommodityDetailProps> = ({
                 </span>
               </div>
               {isPotatoStarch ? (
-                <div className="text-[9px] sm:text-[10px] text-slate-500 font-mono mt-1 leading-tight whitespace-normal">
-                  <span>
-                    {currency === 'KRW'
-                      ? `-₩15,200 KRW/MT`
-                      : currency === 'EUR'
-                      ? `-10.00 EUR/MT`
-                      : `-$10.80 USD/MT`}
-                  </span>
-                  <span className="text-[8px] text-slate-400 block mt-0.5">전년 동월 대비 (vs Sep 2025)</span>
+                <div className="text-[9px] sm:text-[10px] text-slate-500 font-sans mt-1 leading-tight whitespace-normal break-keep">
+                  <span className="font-semibold text-[#DF0029] block mb-0.5">’25년 실제 생산량 대비 ’26년 생산량 감소 전망</span>
+                  <span className="text-[8px] text-slate-400 block mt-0.5">주요 조달국 원료감자 생산량 기준</span>
                 </div>
               ) : (
                 <>
@@ -2313,6 +2420,15 @@ export const CommodityDetail: React.FC<CommodityDetailProps> = ({
                     : `Eurostat Comext · Proxy €860.00/MT + 운임 €60.40/MT + 항만비 €10.50/MT = €930.90/MT`}
                 </p>
               )}
+              {isTapiocaStarch && (
+                <p className="text-[9px] sm:text-[10px] text-slate-500 font-sans mt-1 leading-tight break-keep whitespace-normal text-slate-500">
+                  {currency === 'KRW'
+                    ? `환율 ₩${Math.round(exchangeRate)}/USD 적용 · TTSA FOB 방콕 $510.00/MT + 태국-한국 해상 운임 $22.00/MT + 부산 항만 부대비용 $10.50/MT = $542.50/MT (₩746 / kg)`
+                    : currency === 'EUR'
+                    ? `EUR/USD 1.08 적용 · TTSA FOB 방콕 $510.00/MT + 태국-한국 해상 운임 $22.00/MT + 부산 항만 부대비용 $10.50/MT = $542.50/MT`
+                    : `TTSA Weekly 고시 (2026-09-25) · FOB 방콕 $510.00/MT + 태국-한국 해상 운임 $22.00/MT + 부산 항만 부대비용 $10.50/MT = $542.50/MT`}
+                </p>
+              )}
             </div>
 
             {/* Desk Recommendation */}
@@ -2354,17 +2470,17 @@ export const CommodityDetail: React.FC<CommodityDetailProps> = ({
           <div className="flex items-center gap-2 flex-wrap">
             <span className="material-symbols-outlined text-[18px] text-[#111827]">show_chart</span>
             <h3 className="text-base font-bold text-slate-900 flex items-center gap-1.5">
-              {isWheat ? '가격 추이 분석' : '가격 추이 및 기술적 지표'} <span className="text-sm font-bold text-slate-900 ml-1">(Price Trend Analysis)</span>
+              {isWheat ? '가격 추이 분석' : isPotatoStarch ? '주요 조달국 원료감자 생산량 추이' : '가격 추이 및 기술적 지표'} <span className="text-sm font-bold text-slate-900 ml-1">({isPotatoStarch ? 'Raw Potato Production Trend' : 'Price Trend Analysis'})</span>
             </h3>
 
             <div className="flex items-center gap-2 flex-wrap text-xs text-gray-400 font-sans ml-1">
               <a 
-                href={isWheat ? (usWheatHistory?.sourceUrl || EXTERNAL_CHART_URLS['wheat'] || "https://uswheat.org/market-information/price-report/") : exchange.url} 
+                href={isWheat ? (usWheatHistory?.sourceUrl || EXTERNAL_CHART_URLS['wheat'] || "https://uswheat.org/market-information/price-report/") : isPotatoStarch ? "https://joint-research-centre.ec.europa.eu/monitoring-agricultural-resources-mars/jrc-mars-bulletin_en" : exchange.url} 
                 target="_blank" 
                 rel="noopener noreferrer" 
                 className="hover:underline flex items-center gap-0.5 text-gray-400 hover:text-[#DF0029] transition-colors font-normal font-sans"
               >
-                출처: {isWheat ? 'U.S. Wheat Associates' : exchange.name} ↗
+                출처: {isWheat ? 'U.S. Wheat Associates' : isPotatoStarch ? 'JRC MARS · Eurostat' : exchange.name} ↗
               </a>
               {isWheat && (
                 <>
@@ -2815,9 +2931,15 @@ export const CommodityDetail: React.FC<CommodityDetailProps> = ({
         ) : (
           <div className="h-68 sm:h-76 w-full bg-[#fafbfc] border border-[#f3f4f6] rounded-lg p-4 flex flex-col justify-between relative overflow-hidden select-none">
             <div className="grid grid-cols-3 w-full items-center text-xs text-[#6b7280] font-mono relative z-10 bg-[#fafbfc]">
-              <span className="text-left">최저: {formatChartPrice(chartData.low)}</span>
-              <span className="text-center">평균: {formatChartPrice(chartData.avg)}</span>
-              <span className="text-right">최고: {formatChartPrice(chartData.high)}</span>
+              <span className="text-left">
+                {isPotatoStarch ? `최저: ${chartData.low.toFixed(2)} MMT` : `최저: ${formatChartPrice(chartData.low)}`}
+              </span>
+              <span className="text-center">
+                {isPotatoStarch ? `평균: ${chartData.avg.toFixed(2)} MMT` : `평균: ${formatChartPrice(chartData.avg)}`}
+              </span>
+              <span className="text-right">
+                {isPotatoStarch ? `최고: ${chartData.high.toFixed(2)} MMT` : `최고: ${formatChartPrice(chartData.high)}`}
+              </span>
             </div>
 
             <div
@@ -2889,20 +3011,31 @@ export const CommodityDetail: React.FC<CommodityDetailProps> = ({
                     className="absolute right-0 text-[10px] text-slate-400 font-mono transform -translate-y-1/2 bg-[#fafbfc] px-1 rounded select-none z-0"
                     style={{ top: `${(tick.y / 150) * 100}%` }}
                   >
-                    {Math.round(tick.value).toLocaleString('en-US')}
+                    {isPotatoStarch ? `${tick.value.toFixed(1)} MMT` : Math.round(tick.value).toLocaleString('en-US')}
                   </span>
                 ))}
               </div>
 
-              {/* Permanent Fixed Live Price Badge */}
-              <div
-                className="absolute right-0 pointer-events-none transform -translate-y-1/2 z-10"
-                style={{ top: `${liveYPct}%` }}
-              >
-                <span className="bg-[#DF0829] text-white px-2 py-0.5 rounded text-[11px] font-mono font-bold shadow-sm whitespace-nowrap block">
-                  {formatChartPrice(latestLivePrice)}
-                </span>
-              </div>
+              {/* Permanent Fixed Live Price Badge or Latest Production */}
+              {!isPotatoStarch ? (
+                <div
+                  className="absolute right-0 pointer-events-none transform -translate-y-1/2 z-10"
+                  style={{ top: `${liveYPct}%` }}
+                >
+                  <span className="bg-[#DF0829] text-white px-2 py-0.5 rounded text-[11px] font-mono font-bold shadow-sm whitespace-nowrap block">
+                    {formatChartPrice(latestLivePrice)}
+                  </span>
+                </div>
+              ) : (
+                <div
+                  className="absolute right-0 pointer-events-none transform -translate-y-1/2 z-10"
+                  style={{ top: `${((34.0 - 27.60) / (34.0 - 25.0)) * 100}%` }}
+                >
+                  <span className="bg-[#DF0829] text-white px-2 py-0.5 rounded text-[11px] font-mono font-bold shadow-sm whitespace-nowrap block">
+                    27.60 MMT (2026E)
+                  </span>
+                </div>
+              )}
 
               {/* X-Axis Active Badge */}
               {crosshairState?.active && (
@@ -2924,31 +3057,21 @@ export const CommodityDetail: React.FC<CommodityDetailProps> = ({
                 >
                   <div className="font-bold text-slate-800 border-b border-slate-100 pb-1 font-sans flex items-center justify-between gap-4">
                     <span>{crosshairState.date}</span>
-                    <span className="text-[10px] text-slate-500 font-mono">{commodity.gradeEn}</span>
+                    <span className="text-[10px] text-slate-500 font-mono">
+                      {isPotatoStarch ? 'EU Procurement Origins' : commodity.gradeEn}
+                    </span>
                   </div>
                   <div className="flex items-center justify-between gap-4 text-[#DF0029]">
                     <span className="font-sans font-medium flex items-center gap-1.5">
-                      <span className="w-2 h-2 rounded-full bg-[#DF0029]"></span> {commodity.nameKo}:
+                      <span className="w-2 h-2 rounded-full bg-[#DF0029]"></span> 
+                      {isPotatoStarch ? '원료감자 생산량' : commodity.nameKo}:
                     </span>
                     <div className="text-right">
                       <span className="font-bold">
-                        {currencySymbol}{formatConvertedPrice(crosshairState.price)} <span className="text-[10px] font-semibold text-slate-500">{currencyLabel}</span>
+                        {isPotatoStarch 
+                          ? `${crosshairState.price.toFixed(2)} MMT` 
+                          : `${currencySymbol}${formatConvertedPrice(crosshairState.price)} ${currencyLabel}`}
                       </span>
-                      {commodity.id === 'corn' && (
-                        <div className="text-[10px] text-slate-400 font-normal">
-                          (${((crosshairState.price / (currency === 'KRW' ? exchangeRate : currency === 'EUR' ? 1 / 1.08 : 1)) / 39.368).toFixed(2)}/bu · {Math.round(((crosshairState.price / (currency === 'KRW' ? exchangeRate : currency === 'EUR' ? 1 / 1.08 : 1)) / 39.368) * 100)} USd)
-                        </div>
-                      )}
-                      {commodity.id === 'soybean' && (
-                        <div className="text-[10px] text-slate-400 font-normal">
-                          (${((crosshairState.price / (currency === 'KRW' ? exchangeRate : currency === 'EUR' ? 1 / 1.08 : 1)) / 36.7437).toFixed(2)}/bu · {Math.round(((crosshairState.price / (currency === 'KRW' ? exchangeRate : currency === 'EUR' ? 1 / 1.08 : 1)) / 36.7437) * 100)} USd)
-                        </div>
-                      )}
-                      {commodity.id === 'palm-oil' && (
-                        <div className="text-[10px] text-slate-400 font-normal">
-                          (MYR {Math.round((crosshairState.price / (currency === 'KRW' ? exchangeRate : currency === 'EUR' ? 1 / 1.08 : 1)) * 4.45).toLocaleString('en-US')}/MT)
-                        </div>
-                      )}
                     </div>
                   </div>
                 </div>

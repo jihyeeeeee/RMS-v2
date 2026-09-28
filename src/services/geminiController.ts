@@ -85,7 +85,7 @@ class GeminiController {
         palmOilPrice: data.commodities?.palmOil?.price || 4185,
         sugarPrice: data.commodities?.sugar?.price || 21.65,
         potatoStarchPrice: data.commodities?.potatoStarch?.price || 860.00,
-        tapiocaStarchPrice: data.commodities?.tapiocaStarch?.price || 495.00,
+        tapiocaStarchPrice: data.commodities?.tapiocaStarch?.price || 510.00,
         aiBriefSynthesis: data.aiBriefSynthesis || '글로벌 소맥 및 유지류 시장은 흑해 수출 회랑 불확실성과 남미 주요 파종지의 가뭄으로 단기 상승 압력에 직면해 있습니다.',
         directives: data.directives,
         citations: data.citations || [],
@@ -114,7 +114,7 @@ class GeminiController {
           palmOil: { price: 4185, unit: 'MYR/MT', changeWoW: 3.80, landedKrw: Math.round(((4185 / 4.40 + 35) * pipeline.usdKrw * 1.03) / 1000) },
           sugar: { price: 21.65, unit: 'USc/lb', changeWoW: -1.20, landedKrw: Math.round(((21.65 * 22.0462 + 45) * pipeline.usdKrw * 1.03) / 1000) },
           potatoStarch: { price: 860.00, unit: 'EUR/MT', changeWoW: 0.00, landedKrw: Math.round(((860.00 + 85) * pipeline.eurKrw * 1.08) / 1000) },
-          tapiocaStarch: { price: 495.00, unit: 'USD/MT', changeWoW: 0.40, landedKrw: Math.round(((495.00 + 32) * pipeline.usdKrw * 1.04) / 1000) }
+          tapiocaStarch: { price: 510.00, unit: 'USD/MT', changeWoW: -0.39, landedKrw: Math.round(((510.00 + 32) * pipeline.usdKrw * 1.04) / 1000) }
         };
 
         let macroScore = 58;

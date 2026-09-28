@@ -103,10 +103,10 @@ export const CommodityWasdeCard: React.FC<CommodityWasdeCardProps> = ({
             <div className="p-2.5 bg-[#f9fafb] rounded border border-[#e5e7eb]">
               <span className="text-[10px] text-[#6b7280] block font-sans">감자 생산량 (Potato Production)</span>
               <span className="font-mono text-sm font-bold text-[#111827] mt-0.5 block">
-                48.2 MMT
+                27.60 MMT
               </span>
-              <span className="text-[10px] font-mono text-[#6b7280] block mt-0.5">
-                48,200 kMT (EU-27)
+              <span className="text-[10px] font-mono text-[#DF0029] font-semibold block mt-0.5">
+                vs 2025: 30.00 MMT (-8.00%)
               </span>
             </div>
 
@@ -117,7 +117,7 @@ export const CommodityWasdeCard: React.FC<CommodityWasdeCardProps> = ({
                 1.42 MMT
               </span>
               <span className="text-[10px] font-mono text-[#6b7280] block mt-0.5">
-                1,420 kMT (CN 110813)
+                CN 110813 (안정적)
               </span>
             </div>
 
@@ -136,10 +136,10 @@ export const CommodityWasdeCard: React.FC<CommodityWasdeCardProps> = ({
             <div className="p-2.5 bg-[#f9fafb] rounded border border-[#e5e7eb]">
               <span className="text-[10px] text-[#6b7280] block font-sans">재배 면적 (Area Harvested)</span>
               <span className="font-mono text-sm font-bold text-[#111827] mt-0.5 block">
-                1.28 M HA
+                699 kHA
               </span>
-              <span className="text-[10px] font-mono text-[#6b7280] block mt-0.5">
-                1,280 kHA (EU-27)
+              <span className="text-[10px] font-mono text-[#DF0029] font-semibold block mt-0.5">
+                vs 2025: 720 kHA (-2.92%)
               </span>
             </div>
 
@@ -147,27 +147,27 @@ export const CommodityWasdeCard: React.FC<CommodityWasdeCardProps> = ({
             <div className="p-2.5 bg-[#f9fafb] rounded border border-[#e5e7eb]">
               <span className="text-[10px] text-[#6b7280] block font-sans whitespace-normal break-keep">감자 단수 (Potato Yield)</span>
               <span className="font-mono text-sm font-bold text-[#111827] mt-0.5 block">
-                37.64 MT/HA
+                39.5 MT/HA
               </span>
-              <span className="text-[10px] font-mono text-[#6b7280] block mt-0.5">
-                37,640 kg/HA (Eurostat)
+              <span className="text-[10px] font-mono text-[#DF0029] font-semibold block mt-0.5">
+                vs 2025: 41.7 MT/HA (-5.3%)
               </span>
             </div>
 
-            {/* Box 6: JRC 예측 단수 (JRC Yield Forecast) */}
+            {/* Box 6: JRC 수율 예측 (Starch Content) */}
             <div className="p-2.5 bg-[#f9fafb] rounded border border-[#e5e7eb]">
-              <span className="text-[10px] text-[#6b7280] block font-sans">JRC 예측 단수 (JRC Forecast)</span>
+              <span className="text-[10px] text-[#6b7280] block font-sans">감자 전분 함량 (Starch Content)</span>
               <span className="font-mono text-sm font-bold text-[#111827] mt-0.5 block">
-                36.85 MT/HA
+                19.2% (평균)
               </span>
-              <span className="text-[10px] font-mono text-red-500 block mt-0.5">
-                편차: -2.1% (평년비)
+              <span className="text-[10px] font-mono text-amber-500 block mt-0.5 font-medium">
+                고온 가뭄 여파 수율 편차
               </span>
             </div>
           </div>
 
-          <p className="text-xs text-[#4b5563] bg-[#f9fafb] p-2.5 rounded border border-[#e5e7eb] leading-relaxed">
-            서유럽 주산지(독일, 네덜란드, 프랑스)의 여름철 수분 결핍으로 평년 대비 예측 단수가 -2.1% 소폭 감소하였으나, 전체적인 재배 면적 증가로 전분 원료용 감자 총 공급 물량은 전년 대비 견조한 수준을 유지하고 있습니다.
+          <p className="text-xs text-[#4b5563] bg-[#f9fafb] p-2.5 rounded border border-[#e5e7eb] leading-relaxed break-keep">
+            주요 조달국(독일, 프랑스, 네덜란드, 덴마크)의 원료감자 생산량 전망치는 재배면적 축소(-2.92%)와 여름철 가뭄 여파에 따른 단수 하락(-5.3%)이 중첩되어 전년(30.00 MMT) 대비 -8.00% 감소한 27.60 MMT로 예측됩니다. 이에 따라 원료 공급 타이트화 및 가공용 수율(Starch Content) 편차 위험으로 전반적인 조달 타이트와 단가 변동성 주시가 권고됩니다.
           </p>
         </div>
 
@@ -182,6 +182,120 @@ export const CommodityWasdeCard: React.FC<CommodityWasdeCardProps> = ({
               className="text-indigo-600 hover:text-indigo-800 hover:underline font-medium inline-flex items-center gap-0.5"
             >
               Eurostat ↗
+            </a>
+          </span>
+        </div>
+      </div>
+    );
+  }
+
+  const isTapiocaStarch = normalizedId === 'tapioca-starch' || normalizedId === 'tapioca_starch';
+
+  if (isTapiocaStarch) {
+    return (
+      <div className={`flex flex-col h-full justify-between bg-white p-6 rounded-xl border border-gray-100 shadow-sm pdf-section-card min-h-[280px] break-inside-avoid print:break-inside-avoid ${className || ''}`.trim()}>
+        {/* Upper Content Section */}
+        <div className="flex-1 space-y-3">
+          {/* Card Header */}
+          <div className="flex items-center justify-between pb-2 border-b border-[#f3f4f6]">
+            <div className="flex items-center gap-1.5 min-w-0 flex-1">
+              <span className="material-symbols-outlined text-[18px] text-[#111827] shrink-0">inventory_2</span>
+              <h3 className="text-base font-bold text-slate-900 break-keep">
+                글로벌 수급 밸런스 - 카사바 및 타피오카 지표
+              </h3>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <span className="text-xs text-slate-500 font-medium whitespace-nowrap">
+                Season: <span className="text-slate-800 font-semibold">2025/26</span>
+              </span>
+            </div>
+          </div>
+
+          {/* Dynamic 6-Grid S&D Telemetry Card */}
+          <div className="grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_minmax(0,1.25fr)_minmax(0,1fr)] print:grid-cols-[minmax(0,1fr)_minmax(0,1.25fr)_minmax(0,1fr)] wasde-grid gap-3">
+            {/* Box 1: 카사바 생산량 (Cassava Production) */}
+            <div className="p-2.5 bg-[#f9fafb] rounded border border-[#e5e7eb]">
+              <span className="text-[10px] text-[#6b7280] block font-sans">카사바 생산량 (Cassava Production)</span>
+              <span className="font-mono text-sm font-bold text-[#111827] mt-0.5 block">
+                26.00 MMT
+              </span>
+              <span className="text-[10px] font-mono text-[#DF0029] font-semibold block mt-0.5">
+                vs 2024/25: 26.18 MMT (-0.7%)
+              </span>
+            </div>
+
+            {/* Box 2: 천연전분 수출량 (Native Starch Exports) */}
+            <div className="p-2.5 bg-[#f9fafb] rounded border border-[#e5e7eb]">
+              <span className="text-[10px] text-[#6b7280] block font-sans whitespace-normal break-keep">천연전분 수출량 (Native Starch Exports)</span>
+              <span className="font-mono text-sm font-bold text-[#111827] mt-0.5 block">
+                2.85 MMT
+              </span>
+              <span className="text-[10px] font-mono text-[#059669] font-semibold block mt-0.5">
+                vs 2024/25: 2.74 MMT (+4.2%)
+              </span>
+            </div>
+
+            {/* Box 3: 변성전분 수출량 (Modified Starch Exports) */}
+            <div className="p-2.5 bg-[#f9fafb] rounded border border-[#e5e7eb]">
+              <span className="text-[10px] text-[#6b7280] block font-sans">변성전분 수출량 (Modified Starch Exports)</span>
+              <span className="font-mono text-sm font-bold text-[#111827] mt-0.5 block">
+                1.15 MMT
+              </span>
+              <span className="text-[10px] font-mono text-[#DF0029] font-semibold block mt-0.5">
+                vs 2024/25: 1.17 MMT (-1.5%)
+              </span>
+            </div>
+
+            {/* Box 4: 재배 면적 (Cassava Area) */}
+            <div className="p-2.5 bg-[#f9fafb] rounded border border-[#e5e7eb]">
+              <span className="text-[10px] text-[#6b7280] block font-sans">카사바 재배면적 (Planted Area)</span>
+              <span className="font-mono text-sm font-bold text-[#111827] mt-0.5 block">
+                1,250 kHA
+              </span>
+              <span className="text-[10px] font-mono text-[#DF0029] font-semibold block mt-0.5">
+                vs 2024/25: 1,290 kHA (-3.1%)
+              </span>
+            </div>
+
+            {/* Box 5: 카사바 단수 (Cassava Yield) */}
+            <div className="p-2.5 bg-[#f9fafb] rounded border border-[#e5e7eb]">
+              <span className="text-[10px] text-[#6b7280] block font-sans whitespace-normal break-keep">카사바 평균단수 (Cassava Yield)</span>
+              <span className="font-mono text-sm font-bold text-[#111827] mt-0.5 block">
+                20.8 MT/HA
+              </span>
+              <span className="text-[10px] font-mono text-[#059669] font-semibold block mt-0.5">
+                vs 2024/25: 20.3 MT/HA (+2.4%)
+              </span>
+            </div>
+
+            {/* Box 6: TTSA FOB 가격 (FOB Bangkok) */}
+            <div className="p-2.5 bg-[#f9fafb] rounded border border-[#e5e7eb]">
+              <span className="text-[10px] text-[#6b7280] block font-sans">TTSA 기준시세 (FOB BKK)</span>
+              <span className="font-mono text-sm font-bold text-[#111827] mt-0.5 block">
+                $510.00 / MT
+              </span>
+              <span className="text-[10px] font-mono text-[#DF0029] font-semibold block mt-0.5">
+                vs 전주 대비: -0.39% WoW
+              </span>
+            </div>
+          </div>
+
+          <p className="text-xs text-[#4b5563] bg-[#f9fafb] p-2.5 rounded border border-[#e5e7eb] leading-relaxed break-keep">
+            태국타피오카전분협회(TTSA)의 고시 데이터에 따르면, 2025/2026 시즌 주요 조달 산지의 카사바 재배면적은 전년 대비 -3.1% 축소된 1,250 kHA로 감축되었으나 평균 단수는 20.8 MT/HA(+2.4%)로 소폭 개선되었습니다. 경작지 축소의 영향으로 전체 카사바 원료 수급량은 26.0 MMT(-0.7%)로 전년 대비 소폭 타이트하게 유지되고 있습니다. 천연전분 수출은 2.85 MMT(+4.2%)로 활발한 수입 수요를 보이고 있으며, FOB 방콕 기준 고시 가격은 톤당 510 USD 수준에서 약보합 횡보를 유지 중입니다.
+          </p>
+        </div>
+
+        {/* Footer Source */}
+        <div className="mt-auto pt-4 flex justify-end text-xs text-gray-400">
+          <span>
+            출처: Thai Tapioca Starch Association (TTSA) ·{' '}
+            <a
+              href="https://www.thaitapiocastarch.org"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-indigo-600 hover:text-indigo-800 hover:underline font-medium inline-flex items-center gap-0.5"
+            >
+              TTSA ↗
             </a>
           </span>
         </div>

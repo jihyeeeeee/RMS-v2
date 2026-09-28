@@ -1000,13 +1000,13 @@ export const COMMODITIES: Commodity[] = [
     description: '면류 및 스낵 가공용 동남아산 변성/천연 타피오카 전분',
     category: 'starches',
     categoryNameKo: '당류 및 전분류',
-    price: 495.00,
+    price: 510.00,
     unit: 'USD/MT',
-    priceKrwEstimated: 725.0,
-    landedKrwKg: 725,
-    changeWoW: 0.40,
-    changeMoM: 1.10,
-    changeYoY: -8.33,
+    priceKrwEstimated: 746.0,
+    landedKrwKg: 746,
+    changeWoW: -0.39,
+    changeMoM: -0.97,
+    changeYoY: -1.92,
     cifBusanDesc: '부산 CIF 추정 통관 원가 (기준 환율 USD/KRW 1,388.50 기준)',
     ticker: 'TTSA: FOB BKK / NATIVE',
     exchange: 'Thai FOB',
@@ -1114,7 +1114,7 @@ export const COMMODITIES: Commodity[] = [
       { region: '인도네시아 (Lampung / Java)', production: '320.0', yoy: '-0.5%', isYoyPositive: false, exports: '85.0', endingStocks: '28.0', riskAssessment: '보통 - 내수 스낵/식품 가공 수요 우선 배정', riskLevel: 'Medium' }
     ],
     landedCompetitiveness: [
-      { origin: '태국 코랏 Premium Food Grade (TTSA Standard)', grade: '방콕 FOB, 면발 탄력성 강화용 고순도', regionCategory: 'all', regionTag: '태국', fob: '$495.00/MT', freight: '$22.00/MT', tariff: '0% (AKFTA)', cfr: '$517.00/MT', landedKrw: '₩725.0 / kg', assessment: '조달 안정성 최상 / 면류 및 스낵용 표준 원료', highlightBadge: '농심표준' },
+      { origin: '태국 코랏 Premium Food Grade (TTSA Standard)', grade: '방콕 FOB, 면발 탄력성 강화용 고순도', regionCategory: 'all', regionTag: '태국', fob: '$510.00/MT', freight: '$22.00/MT', tariff: '0% (AKFTA)', cfr: '$532.00/MT', landedKrw: '₩746.0 / kg', assessment: '조달 안정성 최상 / 면류 및 스낵용 표준 원료', highlightBadge: '농심표준' },
       { origin: '태국 람차방 Native Super Grade', grade: '람차방 FOB, 스낵 및 제과용 표준 규격', regionCategory: 'all', regionTag: '태국', fob: '$488.00/MT', freight: '$20.00/MT', tariff: '0% (AKFTA)', cfr: '$508.00/MT', landedKrw: '₩712.4 / kg', assessment: '대량 구매 최적 / 가성비 우수' },
       { origin: '베트남 떠이닌 First Grade Native Starch', grade: '호치민 FOB, 식품 가공용 규격', regionCategory: 'all', regionTag: '베트남', fob: '$478.00/MT', freight: '$24.00/MT', tariff: '0% (VKFTA)', cfr: '$502.00/MT', landedKrw: '₩704.0 / kg', assessment: '최저 FOB 오퍼 / 점도 균일도 사전 검수 필요', highlightBadge: '최저가' },
       { origin: '태국 변성 타피오카 (Modified Distarch Adipate)', grade: '방콕 FOB, 고내열/고점도 냉동면/라면 전용', regionCategory: 'all', regionTag: '태국', fob: '$640.00/MT', freight: '$22.00/MT', tariff: '0% (AKFTA)', cfr: '$662.00/MT', landedKrw: '₩928.3 / kg', assessment: '프리미엄 냉동면/고점도 라면 전용 규격' }

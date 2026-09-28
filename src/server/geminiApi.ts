@@ -235,7 +235,7 @@ export function calculateBusanLandedCosts(commodities: any, usdKrw: number, eurK
   const palmOilUsdMt = (commodities?.palmOil?.price || 4185) / 4.40;
   const sugarUsdMt = (commodities?.sugar?.price || 21.65) * 22.0462;
   const potatoStarchEurMt = commodities?.potatoStarch?.price || 860.00;
-  const tapiocaStarchUsdMt = commodities?.tapiocaStarch?.price || 495.00;
+  const tapiocaStarchUsdMt = commodities?.tapiocaStarch?.price || 510.00;
 
   return {
     wheat: Math.round(((wheatUsdMt + 42) * usdKrw * 1.03) / 1000),
@@ -280,7 +280,7 @@ export async function getLiveMarketData(forceRefresh: boolean = false) {
     palmOil: { price: 4185, unit: 'MYR/MT', changeWoW: 3.80, landedKrw: 1440 },
     sugar: { price: 21.65, unit: 'USc/lb', changeWoW: -1.20, landedKrw: 640 },
     potatoStarch: { price: 860.00, unit: 'EUR/MT', changeWoW: 0.00, landedKrw: 1428 },
-    tapiocaStarch: { price: 495.00, unit: 'USD/MT', changeWoW: 0.40, landedKrw: 725 }
+    tapiocaStarch: { price: 510.00, unit: 'USD/MT', changeWoW: -0.39, landedKrw: 746 }
   };
 
   const computedLanded = calculateBusanLandedCosts(defaultCommodities, pipeline.usdKrw, pipeline.eurKrw);
